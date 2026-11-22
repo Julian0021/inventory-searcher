@@ -265,6 +265,12 @@ public class InventorySearcher {
             return;
         }
 
+        if (menu == null && phase != Phase.Idle && phase != Phase.Opening) {
+            // every other phase works on an open container
+            finishContainer();
+            return;
+        }
+
         phaseTicks++;
         switch (phase) {
             case Idle -> {
@@ -400,9 +406,9 @@ public class InventorySearcher {
                 }
                 return;
             }
+            // back to idle first, the new container may turn out to be gone or out of reach
             closeMenu(menu, true);
-            menu = null;
-            openContainerId = -1;
+            finishContainer();
         }
 
         if (!container.isStillThere() || !inReach(container)) {
