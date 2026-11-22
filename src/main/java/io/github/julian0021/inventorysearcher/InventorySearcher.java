@@ -265,7 +265,8 @@ public class InventorySearcher {
     /** Runs at the start of every client tick. */
     public void tick() {
         if (!active) return;
-        if (mc.player == null) {
+        // the terminal or its settings are always open while active, without them container screens would stay blocked
+        if (mc.player == null || mc.gui.screen() == null) {
             deactivate();
             return;
         }

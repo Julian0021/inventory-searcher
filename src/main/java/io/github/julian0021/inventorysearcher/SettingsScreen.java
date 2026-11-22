@@ -20,6 +20,8 @@ import java.util.List;
 /** The settings in a vanilla options screen. */
 public class SettingsScreen extends OptionsSubScreen {
     private final SearcherConfig config = InventorySearcherMod.config();
+    private Button clearWorld;
+    private Button clearAll;
 
     public SettingsScreen(Screen lastScreen) {
         super(lastScreen, Minecraft.getInstance().options, Component.translatable("inventory-searcher.settings"));
@@ -36,18 +38,18 @@ public class SettingsScreen extends OptionsSubScreen {
         list.addSmall(containers.toArray(OptionInstance[]::new));
 
         list.addHeader(Component.translatable("inventory-searcher.settings.excluded"));
-        Button clearWorld = Button.builder(clearWorldText(), button -> {
+        // the layout keeps its contents, so the buttons are updated in place instead of rebuilding the screen
+        clearWorld = Button.builder(Component.empty(), button -> {
             config.exclusions().clearWorld();
             config.save();
-            rebuildWidgets();
+            updateExclusionButtons();
         }).tooltip(Tooltip.create(Component.translatable("inventory-searcher.settings.excluded.tooltip"))).build();
-        clearWorld.active = minecraft.level != null && config.exclusions().countInWorld() > 0;
-        Button clearAll = Button.builder(Component.translatable("inventory-searcher.settings.excluded.clear_all", config.exclusions().countAll()), button -> {
+        clearAll = Button.builder(Component.empty(), button -> {
             config.exclusions().clearAll();
             config.save();
-            rebuildWidgets();
+            updateExclusionButtons();
         }).build();
-        clearAll.active = config.exclusions().countAll() > 0;
+        updateExclusionButtons();
         list.addSmall(clearWorld, clearAll);
 
         list.addHeader(Component.translatable("inventory-searcher.settings.general"));
@@ -86,9 +88,14 @@ public class SettingsScreen extends OptionsSubScreen {
         );
     }
 
-    private Component clearWorldText() {
-        if (minecraft.level == null) return Component.translatable("inventory-searcher.settings.excluded.clear_world_none");
-        return Component.translatable("inventory-searcher.settings.excluded.clear_world", config.exclusions().countInWorld());
+    private void updateExclusionButtons() {
+        boolean inWorld = minecraft.level != null;
+        clearWorld.setMessage(inWorld
+            ? Component.translatable("inventory-searcher.settings.excluded.clear_world", config.exclusions().countInWorld())
+            : Component.translatable("inventory-searcher.settings.excluded.clear_world_none"));
+        clearWorld.active = inWorld && config.exclusions().countInWorld() > 0;
+        clearAll.setMessage(Component.translatable("inventory-searcher.settings.excluded.clear_all", config.exclusions().countAll()));
+        clearAll.active = config.exclusions().countAll() > 0;
     }
 
     @Override
