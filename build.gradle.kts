@@ -30,10 +30,13 @@ dependencies {
     minecraft("com.mojang:minecraft:$minecraftVersion")
     implementation("net.fabricmc:fabric-loader:$loaderVersion")
 
-    // loads the language file from the mod jar, bundled so only Fabric Loader is needed
-    val resourceLoader = fabricApi.module("fabric-resource-loader-v1", fabricApiVersion)
-    implementation(resourceLoader)
-    include(resourceLoader)
+    // loads the language file from the mod jar, bundled so only Fabric Loader is needed;
+    // the resource loader uses classes from fabric-api-base without declaring it, so both are bundled
+    for (module in listOf("fabric-api-base", "fabric-resource-loader-v1")) {
+        val dependency = fabricApi.module(module, fabricApiVersion)
+        implementation(dependency)
+        include(dependency)
+    }
 
     // optional, only for the config button in Mod Menu
     compileOnly("maven.modrinth:modmenu:${providers.gradleProperty("modmenu_version").get()}")
