@@ -18,7 +18,9 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
+import java.util.TreeMap;
 
 /** The settings, stored as JSON in config/inventory-searcher.json. */
 public class SearcherConfig {
@@ -59,6 +61,10 @@ public class SearcherConfig {
     public boolean showShulkerContents = true;
     public SortMode sort = SortMode.COUNT;
 
+    // Excluded containers, world key to "dimension x y z"
+    public Map<String, List<String>> excluded = new TreeMap<>();
+    private transient Exclusions exclusions;
+
     public static SearcherConfig load() {
         if (Files.exists(FILE)) {
             try (Reader reader = Files.newBufferedReader(FILE)) {
@@ -72,6 +78,7 @@ public class SearcherConfig {
     }
 
     public void save() {
+        excluded = exclusions().toMap();
         try {
             Files.createDirectories(FILE.getParent());
             try (Writer writer = Files.newBufferedWriter(FILE)) {
@@ -85,10 +92,19 @@ public class SearcherConfig {
     private SearcherConfig clamped() {
         if (containers == null) containers = new SearcherConfig().containers;
         if (sort == null) sort = SortMode.COUNT;
+        exclusions().fromMap(excluded);
         openDelay = Math.clamp(openDelay, 0, 20);
         openTimeout = Math.clamp(openTimeout, 5, 100);
         clicksPerTick = Math.clamp(clicksPerTick, 1, 10);
         return this;
+    }
+
+    public Exclusions exclusions() {
+        if (exclusions == null) {
+            exclusions = new Exclusions();
+            exclusions.fromMap(excluded);
+        }
+        return exclusions;
     }
 
     public Set<BlockEntityType<?>> containerTypes() {

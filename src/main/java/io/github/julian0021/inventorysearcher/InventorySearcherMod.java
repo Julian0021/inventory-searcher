@@ -17,6 +17,13 @@ public class InventorySearcherMod implements ClientModInitializer {
         KeyMapping.Category.register(Identifier.fromNamespaceAndPath(MOD_ID, "main"))
     );
 
+    private static final KeyMapping EXCLUDE_KEY = new KeyMapping(
+        "key.inventory-searcher.exclude",
+        InputConstants.Type.MOUSE,
+        InputConstants.MOUSE_BUTTON_5,
+        OPEN_KEY.getCategory()
+    );
+
     private static SearcherConfig config;
     private static InventorySearcher searcher;
 
@@ -33,6 +40,9 @@ public class InventorySearcherMod implements ClientModInitializer {
         while (OPEN_KEY.consumeClick()) {
             if (client.gui.screen() == null) searcher.activate();
         }
+        while (EXCLUDE_KEY.consumeClick()) {
+            if (client.gui.screen() == null) searcher.toggleExclusionAtCrosshair();
+        }
         // also closes the terminal after leaving the world
         searcher.tick();
     }
@@ -47,5 +57,9 @@ public class InventorySearcherMod implements ClientModInitializer {
 
     public static KeyMapping openKey() {
         return OPEN_KEY;
+    }
+
+    public static KeyMapping excludeKey() {
+        return EXCLUDE_KEY;
     }
 }

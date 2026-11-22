@@ -3,6 +3,7 @@ package io.github.julian0021.inventorysearcher;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
+import net.minecraft.ChatFormatting;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.core.component.DataComponents;
@@ -10,6 +11,8 @@ import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.protocol.game.ServerboundContainerClosePacket;
 import net.minecraft.network.protocol.game.ServerboundMovePlayerPacket;
 import net.minecraft.util.Mth;
+import net.minecraft.network.chat.Component;
+import net.minecraft.world.Container;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.entity.player.Inventory;
@@ -25,9 +28,11 @@ import net.minecraft.world.level.block.ShulkerBoxBlock;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.entity.BlockEntityTypes;
+import net.minecraft.world.level.block.entity.EnderChestBlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.properties.ChestType;
 import net.minecraft.world.phys.BlockHitResult;
+import net.minecraft.world.phys.HitResult;
 import net.minecraft.world.phys.Vec3;
 
 import java.util.*;
@@ -52,6 +57,7 @@ public class InventorySearcher {
     private List<Entry> entries = List.of();
     private int version;
     private long totalItems;
+    private int excludedInReach;
 
     // Work queue, only one container can be open at a time
 
@@ -154,6 +160,15 @@ public class InventorySearcher {
 
         Vec3 eye = mc.player.getEyePosition();
         found.sort(Comparator.comparingDouble(c -> c.distanceTo(eye)));
+
+        excludedInReach = 0;
+        for (Iterator<StorageContainer> it = found.iterator(); it.hasNext(); ) {
+            StorageContainer container = it.next();
+            if (!exclusions().isExcluded(container.key())) continue;
+            it.remove();
+            containers.remove(container.key());
+            excludedInReach++;
+        }
 
         for (StorageContainer container : found) {
             // every ender chest opens the same inventory
@@ -1004,7 +1019,42 @@ public class InventorySearcher {
     }
 
     public String summary() {
-        return containerCount() + " containers · " + String.format("%,d", totalItems) + " items";
+        String summary = containerCount() + " containers · " + String.format("%,d", totalItems) + " items";
+        return excludedInReach > 0 ? summary + " · " + excludedInReach + " excluded" : summary;
+    }
+
+    // Excluding containers
+
+    private Exclusions exclusions() {
+        return config.exclusions();
+    }
+
+    private void saveExclusions() {
+        config.save();
+    }
+
+    /** Excludes the container the player looks at from searching, or includes it again. */
+    public void toggleExclusionAtCrosshair() {
+        if (mc.player == null || mc.level == null) return;
+        if (!(mc.hitResult instanceof BlockHitResult hit) || hit.getType() != HitResult.Type.BLOCK) {
+            mc.player.sendOverlayMessage(Component.literal("Look at a container to exclude it from the Inventory Searcher"));
+            return;
+        }
+
+        BlockPos pos = hit.getBlockPos();
+        BlockEntity blockEntity = mc.level.getBlockEntity(pos);
+        if (!(blockEntity instanceof Container) && !(blockEntity instanceof EnderChestBlockEntity)) {
+            mc.player.sendOverlayMessage(Component.literal("That's not a container"));
+            return;
+        }
+
+        StorageContainer container = containerAt(pos, blockEntity.getBlockState(), blockEntity.getType());
+        boolean excluded = exclusions().toggle(container.key());
+        saveExclusions();
+
+        String name = blockEntity.getBlockState().getBlock().getName().getString();
+        mc.player.sendOverlayMessage(Component.literal((excluded ? "Excluded " : "Included ") + name + " at " + pos.getX() + ", " + pos.getY() + ", " + pos.getZ())
+            .withStyle(excluded ? ChatFormatting.RED : ChatFormatting.GREEN));
     }
 
     public boolean isScanning() {

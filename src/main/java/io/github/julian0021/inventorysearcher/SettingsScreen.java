@@ -35,6 +35,21 @@ public class SettingsScreen extends OptionsSubScreen {
         }
         list.addSmall(containers.toArray(OptionInstance[]::new));
 
+        list.addHeader(Component.translatable("inventory-searcher.settings.excluded"));
+        Button clearWorld = Button.builder(clearWorldText(), button -> {
+            config.exclusions().clearWorld();
+            config.save();
+            rebuildWidgets();
+        }).tooltip(Tooltip.create(Component.translatable("inventory-searcher.settings.excluded.tooltip"))).build();
+        clearWorld.active = minecraft.level != null && config.exclusions().countInWorld() > 0;
+        Button clearAll = Button.builder(Component.translatable("inventory-searcher.settings.excluded.clear_all", config.exclusions().countAll()), button -> {
+            config.exclusions().clearAll();
+            config.save();
+            rebuildWidgets();
+        }).build();
+        clearAll.active = config.exclusions().countAll() > 0;
+        list.addSmall(clearWorld, clearAll);
+
         list.addHeader(Component.translatable("inventory-searcher.settings.general"));
         list.addSmall(
             bool("rotate", config.rotate, value -> config.rotate = value),
@@ -69,6 +84,11 @@ public class SettingsScreen extends OptionsSubScreen {
                 }
             )
         );
+    }
+
+    private Component clearWorldText() {
+        if (minecraft.level == null) return Component.translatable("inventory-searcher.settings.excluded.clear_world_none");
+        return Component.translatable("inventory-searcher.settings.excluded.clear_world", config.exclusions().countInWorld());
     }
 
     @Override

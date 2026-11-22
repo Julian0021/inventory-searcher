@@ -22,10 +22,11 @@ public abstract class OptionsMixin {
 
     // before options.txt is read, so the saved binding gets applied and the key shows up in the controls
     @Inject(method = "load", at = @At("HEAD"))
-    private void inventorySearcher$addKeyMapping(CallbackInfo ci) {
-        KeyMapping key = InventorySearcherMod.openKey();
-        if (Arrays.asList(keyMappings).contains(key)) return;
-        keyMappings = Arrays.copyOf(keyMappings, keyMappings.length + 1);
-        keyMappings[keyMappings.length - 1] = key;
+    private void inventorySearcher$addKeyMappings(CallbackInfo ci) {
+        for (KeyMapping key : new KeyMapping[] {InventorySearcherMod.openKey(), InventorySearcherMod.excludeKey()}) {
+            if (Arrays.asList(keyMappings).contains(key)) continue;
+            keyMappings = Arrays.copyOf(keyMappings, keyMappings.length + 1);
+            keyMappings[keyMappings.length - 1] = key;
+        }
     }
 }
