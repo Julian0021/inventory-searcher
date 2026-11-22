@@ -26,6 +26,10 @@ Via the **Settings** button in the terminal or Mod Menu, saved in `config/invent
 - **Shulker contents:** on
 - **Sort:** count, name or mod
 
+## Download
+
+Get the jar from [Releases](https://github.com/Julian0021/inventory-searcher/releases) and put it into your `mods` folder next to Fabric API.
+
 ## Build
 
 ```sh
