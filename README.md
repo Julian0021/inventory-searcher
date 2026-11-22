@@ -19,7 +19,7 @@ No other mods needed, Fabric API is not required.
 | Shift + left click item | Move one stack into the inventory |
 | Click grid while holding a stack | Store it in the nearest chest with room |
 | Shift + left click own slot | Store that slot |
-| Mouse 5 (rebindable) while looking at a container | Exclude it from searching, or include it again |
+| Exclude key (unbound by default) while looking at a container | Exclude it from searching, or include it again |
 | Ctrl + R / Esc | Rescan / close |
 
 Search by name, `@mod` or `#tooltip`. Items only stored inside shulker boxes are taken as a whole box. The last used container stays open until another one is needed.
@@ -34,7 +34,7 @@ Via the **Settings** button in the terminal or Mod Menu, saved in `config/invent
 - **Clicks per tick:** 4
 - **Shulker contents:** on
 - **Sort:** count, name or mod
-- **Excluded containers:** clear them for the current world or everywhere. They are stored per world or server.
+- **Excluded containers:** set the exclude key, and clear exclusions for the current world or everywhere. They are stored per world or server.
 
 ## Build
 

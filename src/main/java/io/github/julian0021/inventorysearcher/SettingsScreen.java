@@ -1,6 +1,9 @@
 package io.github.julian0021.inventorysearcher;
 
+import com.mojang.blaze3d.platform.InputConstants;
 import com.mojang.serialization.Codec;
+import net.minecraft.ChatFormatting;
+import net.minecraft.client.KeyMapping;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.OptionInstance;
 import net.minecraft.client.Options;
@@ -9,6 +12,8 @@ import net.minecraft.client.gui.components.Tooltip;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.gui.screens.options.OptionsSubScreen;
 import net.minecraft.client.gui.screens.options.controls.KeyBindsScreen;
+import net.minecraft.client.input.KeyEvent;
+import net.minecraft.client.input.MouseButtonEvent;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.level.block.entity.BlockEntityType;
@@ -22,6 +27,8 @@ public class SettingsScreen extends OptionsSubScreen {
     private final SearcherConfig config = InventorySearcherMod.config();
     private Button clearWorld;
     private Button clearAll;
+    private Button excludeKeyButton;
+    private boolean listeningForKey;
 
     public SettingsScreen(Screen lastScreen) {
         super(lastScreen, Minecraft.getInstance().options, Component.translatable("inventory-searcher.settings"));
@@ -51,6 +58,12 @@ public class SettingsScreen extends OptionsSubScreen {
         }).build();
         updateExclusionButtons();
         list.addSmall(clearWorld, clearAll);
+        excludeKeyButton = Button.builder(Component.empty(), button -> {
+            listeningForKey = true;
+            updateExcludeKeyButton();
+        }).tooltip(Tooltip.create(Component.translatable("inventory-searcher.settings.exclude_key.tooltip"))).build();
+        updateExcludeKeyButton();
+        list.addBig(excludeKeyButton);
 
         list.addHeader(Component.translatable("inventory-searcher.settings.general"));
         list.addSmall(
@@ -96,6 +109,35 @@ public class SettingsScreen extends OptionsSubScreen {
         clearWorld.active = inWorld && config.exclusions().countInWorld() > 0;
         clearAll.setMessage(Component.translatable("inventory-searcher.settings.excluded.clear_all", config.exclusions().countAll()));
         clearAll.active = config.exclusions().countAll() > 0;
+    }
+
+    private void updateExcludeKeyButton() {
+        Component key = InventorySearcherMod.excludeKey().getTranslatedKeyMessage();
+        if (listeningForKey) key = Component.literal("> ").append(key.copy().withStyle(ChatFormatting.WHITE, ChatFormatting.UNDERLINE)).append(" <").withStyle(ChatFormatting.YELLOW);
+        excludeKeyButton.setMessage(Component.translatable("inventory-searcher.settings.exclude_key", key));
+    }
+
+    private void bindExcludeKey(InputConstants.Key key) {
+        listeningForKey = false;
+        InventorySearcherMod.excludeKey().setKey(key);
+        KeyMapping.resetMapping();
+        options.save();
+        updateExcludeKeyButton();
+    }
+
+    @Override
+    public boolean keyPressed(KeyEvent input) {
+        if (!listeningForKey) return super.keyPressed(input);
+        // like the vanilla controls, escape unbinds
+        bindExcludeKey(input.key() == InputConstants.KEY_ESCAPE ? InputConstants.UNKNOWN : InputConstants.getKey(input));
+        return true;
+    }
+
+    @Override
+    public boolean mouseClicked(MouseButtonEvent click, boolean doubled) {
+        if (!listeningForKey) return super.mouseClicked(click, doubled);
+        bindExcludeKey(InputConstants.Type.MOUSE.getOrCreate(click.button()));
+        return true;
     }
 
     @Override

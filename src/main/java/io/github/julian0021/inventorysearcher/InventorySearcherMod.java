@@ -19,8 +19,8 @@ public class InventorySearcherMod implements ClientModInitializer {
 
     private static final KeyMapping EXCLUDE_KEY = new KeyMapping(
         "key.inventory-searcher.exclude",
-        InputConstants.Type.MOUSE,
-        InputConstants.MOUSE_BUTTON_5,
+        InputConstants.Type.KEYBOARD,
+        InputConstants.UNKNOWN.getValue(),
         OPEN_KEY.getCategory()
     );
 
