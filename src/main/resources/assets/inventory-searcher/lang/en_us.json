@@ -1,0 +1,29 @@
+{
+  "key.category.inventory-searcher.main": "Inventory Searcher",
+  "key.inventory-searcher.open": "Open Inventory Searcher",
+
+  "inventory-searcher.settings": "Inventory Searcher Settings",
+  "inventory-searcher.settings.containers": "Searched Containers",
+  "inventory-searcher.settings.general": "General",
+  "inventory-searcher.settings.timing": "Timing",
+  "inventory-searcher.settings.display": "Display",
+
+  "inventory-searcher.settings.rotate": "Rotate",
+  "inventory-searcher.settings.rotate.tooltip": "Looks at each container before opening it.",
+  "inventory-searcher.settings.swing": "Swing",
+  "inventory-searcher.settings.swing.tooltip": "Swings your hand when opening a container.",
+  "inventory-searcher.settings.keybind": "Key Binds...",
+  "inventory-searcher.settings.keybind.tooltip": "The key to open the terminal is under Inventory Searcher in the controls.",
+
+  "inventory-searcher.settings.open_delay": "Open Delay",
+  "inventory-searcher.settings.open_delay.tooltip": "Ticks to wait between two containers.",
+  "inventory-searcher.settings.open_timeout": "Open Timeout",
+  "inventory-searcher.settings.open_timeout.tooltip": "Ticks to wait for a container to open before skipping it.",
+  "inventory-searcher.settings.clicks_per_tick": "Clicks per Tick",
+  "inventory-searcher.settings.clicks_per_tick.tooltip": "How many inventory clicks to send per tick when moving items.",
+
+  "inventory-searcher.settings.show_shulker_contents": "Shulker Contents",
+  "inventory-searcher.settings.show_shulker_contents.tooltip": "Also lists the items inside shulker boxes stored in the containers. Those can only be taken out as a whole box.",
+  "inventory-searcher.settings.sort": "Sort",
+  "inventory-searcher.settings.sort.tooltip": "How the items in the terminal are sorted."
+}
