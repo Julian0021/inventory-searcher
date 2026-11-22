@@ -49,8 +49,8 @@ public class SearcherConfig {
     public List<String> containers = List.of(
         "minecraft:chest", "minecraft:trapped_chest", "minecraft:barrel", "minecraft:shulker_box", "minecraft:ender_chest", "minecraft:furnace"
     );
-    public boolean rotate = true;
-    public boolean swing = true;
+    public boolean rotate = false;
+    public boolean swing = false;
 
     // Timing
     public int openDelay = 0;

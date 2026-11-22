@@ -29,7 +29,7 @@ Search by name, `@mod` or `#tooltip`. Items only stored inside shulker boxes are
 Via the **Settings** button in the terminal or Mod Menu, saved in `config/inventory-searcher.json`. Both keys are under *Inventory Searcher* in the vanilla controls.
 
 - **Containers:** chest, trapped chest, barrel, shulker box, ender chest, furnace (more selectable)
-- **Rotate / Swing:** on
+- **Rotate / Swing:** off
 - **Open delay / timeout:** 0 / 20 ticks
 - **Clicks per tick:** 4
 - **Shulker contents:** on
