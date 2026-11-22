@@ -4,7 +4,6 @@ plugins {
 
 val minecraftVersion = providers.gradleProperty("minecraft_version").get()
 val loaderVersion = providers.gradleProperty("loader_version").get()
-val fabricApiVersion = providers.gradleProperty("fabric_api_version").get()
 
 base {
     archivesName = providers.gradleProperty("archives_base_name").get()
@@ -29,7 +28,6 @@ repositories {
 dependencies {
     minecraft("com.mojang:minecraft:$minecraftVersion")
     implementation("net.fabricmc:fabric-loader:$loaderVersion")
-    implementation("net.fabricmc.fabric-api:fabric-api:$fabricApiVersion")
 
     // optional, only for the config button in Mod Menu
     compileOnly("maven.modrinth:modmenu:${providers.gradleProperty("modmenu_version").get()}")

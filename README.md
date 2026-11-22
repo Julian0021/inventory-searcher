@@ -5,8 +5,10 @@ Client-side Fabric mod for Minecraft 26.3. One key scans every container in reac
 ## Install
 
 1. Install [Fabric Loader](https://fabricmc.net/use/) for Minecraft 26.3.
-2. Download [Fabric API](https://modrinth.com/mod/fabric-api) and the [latest Inventory Searcher jar](https://github.com/Julian0021/inventory-searcher/releases/latest).
-3. Put both jars into your `.minecraft/mods` folder and start the game.
+2. Download the [latest Inventory Searcher jar](https://github.com/Julian0021/inventory-searcher/releases/latest).
+3. Put it into your `.minecraft/mods` folder and start the game.
+
+No other mods needed, Fabric API is not required.
 
 ## Usage
 
@@ -38,4 +40,4 @@ Via the **Settings** button in the terminal or Mod Menu, saved in `config/invent
 ./gradlew build   # JDK 25, output in build/libs/
 ```
 
-Requires Fabric Loader and Fabric API. Licensed under GPL-3.0.
+Only requires Fabric Loader. Licensed under GPL-3.0.
