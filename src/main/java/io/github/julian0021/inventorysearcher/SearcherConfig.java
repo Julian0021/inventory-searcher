@@ -53,7 +53,7 @@ public class SearcherConfig {
     // Timing
     public int openDelay = 0;
     public int openTimeout = 20;
-    public int clicksPerTick = 2;
+    public int clicksPerTick = 4;
 
     // Display
     public boolean showShulkerContents = true;

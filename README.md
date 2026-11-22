@@ -1,45 +1,35 @@
 # Inventory Searcher
 
-A client-side Fabric mod for Minecraft 26.3. It opens every container in reach without showing its screen, caches the contents and lists everything in one searchable terminal, similar to an ME system.
+Client-side Fabric mod for Minecraft 26.3. One key scans every container in reach without opening its screen and lists all contents in a searchable terminal, like an ME system.
 
-## Use
+## Usage
 
-Press the **Open Inventory Searcher** key (default: mouse button 4) to scan the containers in reach and open the terminal. Closing the terminal closes the last container too.
+| Input | Action |
+|---|---|
+| Mouse 4 (rebindable) | Scan and open the terminal |
+| Left / right click item | Pick up a stack / half a stack |
+| Shift + left click item | Move one stack into the inventory |
+| Click grid while holding a stack | Store it in the nearest chest with room |
+| Shift + left click own slot | Store that slot |
+| Ctrl + R / Esc | Rescan / close |
 
-- Search by name, `@mod` by mod id, `#text` by tooltip.
-- Left click picks up a stack, right click half a stack. Shift + left click moves one stack straight into the inventory. Items that only exist in shulker boxes are taken as a whole box.
-- Click the grid with a held stack, or shift + left click one of your own slots, to store it in the nearest chest, barrel or shulker box with room. Ender chests, furnaces and the like are never used for storing.
-- The last used container stays open and is only switched when another one is needed.
-- Ctrl + R rescans, Esc or the inventory key closes.
+Search by name, `@mod` or `#tooltip`. Items only stored inside shulker boxes are taken as a whole box. The last used container stays open until another one is needed.
 
 ## Settings
 
-Open them with the **Settings** button in the terminal, or through Mod Menu if it is installed. They are saved in `config/inventory-searcher.json`.
+Via the **Settings** button in the terminal or Mod Menu, saved in `config/inventory-searcher.json`. The key is under *Inventory Searcher* in the vanilla controls.
 
-| Setting | Default | |
-|---|---|---|
-| Searched containers | chest, trapped chest, barrel, shulker box, ender chest, furnace | Which containers get scanned |
-| Rotate | on | Looks at each container before opening it |
-| Swing | on | Swings your hand when opening a container |
-| Open delay | 0 ticks | Wait between two containers |
-| Open timeout | 20 ticks | Skip a container that doesn't open in time |
-| Clicks per tick | 2 | Inventory clicks per tick when moving items |
-| Shulker contents | on | Also list items inside stored shulker boxes |
-| Sort | Count | Count, name or mod |
-
-The key is set in the vanilla controls under *Inventory Searcher*.
+- **Containers:** chest, trapped chest, barrel, shulker box, ender chest, furnace (more selectable)
+- **Rotate / Swing:** on
+- **Open delay / timeout:** 0 / 20 ticks
+- **Clicks per tick:** 4
+- **Shulker contents:** on
+- **Sort:** count, name or mod
 
 ## Build
 
-Needs JDK 25.
-
 ```sh
-./gradlew build
-# -> build/libs/inventory-searcher-<version>.jar
+./gradlew build   # JDK 25, output in build/libs/
 ```
 
-Requires Fabric Loader and Fabric API.
-
-## License
-
-GPL-3.0, see `LICENSE`.
+Requires Fabric Loader and Fabric API. Licensed under GPL-3.0.
