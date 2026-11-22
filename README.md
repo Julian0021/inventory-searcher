@@ -2,6 +2,12 @@
 
 Client-side Fabric mod for Minecraft 26.3. One key scans every container in reach without opening its screen and lists all contents in a searchable terminal, like an ME system.
 
+## Install
+
+1. Install [Fabric Loader](https://fabricmc.net/use/) for Minecraft 26.3.
+2. Download [Fabric API](https://modrinth.com/mod/fabric-api) and the [latest Inventory Searcher jar](https://github.com/Julian0021/inventory-searcher/releases/latest).
+3. Put both jars into your `.minecraft/mods` folder and start the game.
+
 ## Usage
 
 | Input | Action |
@@ -25,10 +31,6 @@ Via the **Settings** button in the terminal or Mod Menu, saved in `config/invent
 - **Clicks per tick:** 4
 - **Shulker contents:** on
 - **Sort:** count, name or mod
-
-## Download
-
-Get the jar from [Releases](https://github.com/Julian0021/inventory-searcher/releases) and put it into your `mods` folder next to Fabric API.
 
 ## Build
 
