@@ -38,23 +38,6 @@ public final class CraftingPanel extends AbstractWidget {
     private static final int GRID_BOTTOM = 21;
     private static final int BUTTON_WIDTH = 20;
     private static final int BUTTON_HEIGHT = 18;
-    private static final int SMALL_BUTTON = 11;
-    private static final String[] RESCAN_ICON = {
-        "..XXX.X",
-        ".X...XX",
-        "X...XXX",
-        "X......",
-        "X.....X",
-        ".X...X.",
-        "..XXX..",
-    };
-    private static final String[] CLOSE_ICON = {
-        "X...X",
-        ".X.X.",
-        "..X..",
-        ".X.X.",
-        "X...X",
-    };
     private static final int TEXT_COLOR = 0xFF404040;
 
     private static final WidgetSprites BUTTON_SPRITES = new WidgetSprites(
@@ -209,15 +192,19 @@ public final class CraftingPanel extends AbstractWidget {
     }
 
     private int rescanX() {
-        return panelX + panelWidth - PADDING - 2 * SMALL_BUTTON - 2;
+        return closeX() - IconButton.SIZE - IconButton.GAP;
     }
 
     private int closeX() {
-        return panelX + panelWidth - PADDING - SMALL_BUTTON;
+        return panelX + panelWidth - PADDING - IconButton.SIZE;
+    }
+
+    private int iconButtonY() {
+        return panelY + 4;
     }
 
     private boolean overSmallButton(int x, double mx, double my) {
-        return mx >= x && mx < x + SMALL_BUTTON && my >= panelY + 4 && my < panelY + 4 + SMALL_BUTTON;
+        return IconButton.isOver(x, iconButtonY(), mx, my);
     }
 
     // Rendering
@@ -238,8 +225,8 @@ public final class CraftingPanel extends AbstractWidget {
         int textX = panelX + PADDING;
         int textWidth = panelWidth - 2 * PADDING;
         graphics.text(font, TITLE, textX, panelY + 6, TEXT_COLOR, false);
-        drawSmallButton(graphics, rescanX(), RESCAN_ICON, session.isIdle(), mouseX, mouseY);
-        drawSmallButton(graphics, closeX(), CLOSE_ICON, session.isIdle(), mouseX, mouseY);
+        IconButton.draw(graphics, rescanX(), iconButtonY(), IconButton.RESCAN, session.isIdle(), mouseX, mouseY);
+        IconButton.draw(graphics, closeX(), iconButtonY(), IconButton.CLOSE, session.isIdle(), mouseX, mouseY);
         graphics.text(font, font.plainSubstrByWidth(searcher.summary(), textWidth), textX, panelY + 18, TEXT_COLOR, false);
 
         searchBox.extractRenderState(graphics, mouseX, mouseY, delta);
@@ -276,20 +263,6 @@ public final class CraftingPanel extends AbstractWidget {
         if (!enabled) tooltip = "Only for a crafting table you opened yourself, in reach";
         else tooltip = "Search the containers in reach";
         graphics.setTooltipForNextFrame(font, font.split(Component.literal(tooltip), 200), mouseX, mouseY);
-    }
-
-    private void drawSmallButton(GuiGraphicsExtractor graphics, int x, String[] icon, boolean enabled, int mouseX, int mouseY) {
-        int y = panelY + 4;
-        boolean hovered = enabled && overSmallButton(x, mouseX, mouseY);
-        ItemGrid.drawRaised(graphics, x, y, SMALL_BUTTON, SMALL_BUTTON, hovered ? 0xFFE0E0E0 : enabled ? 0xFFC6C6C6 : 0xFFA0A0A0);
-        // drawn pixel by pixel, the font has no readable glyph for a circular arrow
-        int color = enabled ? TEXT_COLOR : 0xFF707070;
-        int left = x + (SMALL_BUTTON - icon[0].length()) / 2, top = y + (SMALL_BUTTON - icon.length) / 2;
-        for (int row = 0; row < icon.length; row++) {
-            for (int col = 0; col < icon[row].length(); col++) {
-                if (icon[row].charAt(col) == 'X') graphics.fill(left + col, top + row, left + col + 1, top + row + 1, color);
-            }
-        }
     }
 
     // Input

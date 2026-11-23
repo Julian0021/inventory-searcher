@@ -4,7 +4,7 @@ import com.mojang.blaze3d.platform.InputConstants;
 import net.minecraft.ChatFormatting;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
-import net.minecraft.client.gui.components.Button;
+import net.minecraft.client.gui.components.AbstractWidget;
 import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.input.KeyEvent;
@@ -81,12 +81,22 @@ public class InventorySearcherScreen extends Screen {
         searchBox.setResponder(grid::setFilter);
         addRenderableWidget(searchBox);
         setInitialFocus(searchBox);
+    }
 
-        addRenderableWidget(Button.builder(Component.literal("Settings"), button -> {
-            // the terminal stays active while the settings are open
-            openingSettings = true;
-            mc.gui.setScreen(new SettingsScreen(this));
-        }).bounds(left + WIDTH - PADDING - 50, top + 4, 50, 12).build());
+    private int closeX() {
+        return left + WIDTH - PADDING - IconButton.SIZE;
+    }
+
+    private int settingsX() {
+        return closeX() - IconButton.SIZE - IconButton.GAP;
+    }
+
+    private int rescanX() {
+        return settingsX() - IconButton.SIZE - IconButton.GAP;
+    }
+
+    private int iconButtonY() {
+        return top + 4;
     }
 
     @Override
@@ -124,6 +134,9 @@ public class InventorySearcherScreen extends Screen {
         super.extractRenderState(graphics, mouseX, mouseY, delta);
 
         graphics.text(font, title, gridX, top + 6, TEXT_COLOR, false);
+        IconButton.draw(graphics, rescanX(), iconButtonY(), IconButton.RESCAN, true, mouseX, mouseY);
+        IconButton.draw(graphics, settingsX(), iconButtonY(), IconButton.SETTINGS, true, mouseX, mouseY);
+        IconButton.draw(graphics, closeX(), iconButtonY(), IconButton.CLOSE, true, mouseX, mouseY);
         String summary = searcher.summary();
         graphics.text(font, font.plainSubstrByWidth(summary, WIDTH - 2 * PADDING), gridX, top + 18, TEXT_COLOR, false);
 
@@ -162,7 +175,16 @@ public class InventorySearcherScreen extends Screen {
             lines.add(Component.empty());
             lines.add(ItemGrid.hint("Shift + Left: store in the nearest chest"));
             graphics.setTooltipForNextFrame(font, lines, hoveredOwn.getTooltipImage(), mouseX, mouseY);
+        } else if (iconButtonTooltip(mouseX, mouseY) != null) {
+            graphics.setTooltipForNextFrame(font, Component.literal(iconButtonTooltip(mouseX, mouseY)), mouseX, mouseY);
         }
+    }
+
+    private String iconButtonTooltip(double mx, double my) {
+        if (IconButton.isOver(rescanX(), iconButtonY(), mx, my)) return "Scan again (Ctrl + R)";
+        if (IconButton.isOver(settingsX(), iconButtonY(), mx, my)) return "Settings";
+        if (IconButton.isOver(closeX(), iconButtonY(), mx, my)) return "Close (Esc)";
+        return null;
     }
 
     private List<Component> tooltip(InventorySearcher.Entry entry) {
@@ -188,6 +210,7 @@ public class InventorySearcherScreen extends Screen {
         if (super.mouseClicked(click, doubled)) return true;
 
         double mx = click.x(), my = click.y();
+        if (click.button() == InputConstants.MOUSE_BUTTON_LEFT && clickIconButton(mx, my)) return true;
         if (mx < left || my < top || mx >= left + WIDTH || my >= top + height0) {
             // like vanilla, a click outside the window drops the held stack, a right click a single item
             if (searcher.cursorStack().isEmpty()) return false;
@@ -265,6 +288,23 @@ public class InventorySearcherScreen extends Screen {
             return true;
         }
         return false;
+    }
+
+    private boolean clickIconButton(double mx, double my) {
+        Runnable action;
+        if (IconButton.isOver(rescanX(), iconButtonY(), mx, my)) action = searcher::rescan;
+        else if (IconButton.isOver(settingsX(), iconButtonY(), mx, my)) action = this::openSettings;
+        else if (IconButton.isOver(closeX(), iconButtonY(), mx, my)) action = this::onClose;
+        else return false;
+        AbstractWidget.playButtonClickSound(mc.getSoundManager());
+        action.run();
+        return true;
+    }
+
+    private void openSettings() {
+        // the terminal stays active while the settings are open
+        openingSettings = true;
+        mc.gui.setScreen(new SettingsScreen(this));
     }
 
     // Helpers

@@ -23,7 +23,7 @@ No other mods needed, Fabric API is not required.
 | Left / right click outside while holding a stack | Drop the stack / one item |
 | Shift + left click own slot | Store that slot |
 | Exclude key (unbound by default) while looking at a container | Exclude it from searching, or include it again |
-| Ctrl + R / Esc | Rescan / close |
+| Ctrl + R / Esc, or the buttons at the top | Rescan / close |
 
 Search by name, `@mod` or `#tooltip`. Items only stored inside shulker boxes are taken as a whole box. The last used container stays open until another one is needed.
 
@@ -43,7 +43,7 @@ The recipe book counts the stored items, so recipes made from them show up as cr
 
 ## Settings
 
-Via the **Settings** button in the terminal or Mod Menu, saved in `config/inventory-searcher.json`. Both keys are under *Inventory Searcher* in the vanilla controls.
+Via the gear button at the top of the terminal or Mod Menu, saved in `config/inventory-searcher.json`. Both keys are under *Inventory Searcher* in the vanilla controls.
 
 - **Containers:** chest, trapped chest, barrel, shulker box, ender chest, furnace (more selectable)
 - **Rotate / Swing:** off
