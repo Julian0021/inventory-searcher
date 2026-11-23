@@ -44,6 +44,8 @@ import java.util.*;
 public class InventorySearcher {
     private static final int MAX_STALLED_CLICKS = 3;
     private static final int SETTLE_TICKS = 2;
+    /** A safety net for the work loop, every step clicks or ends a job. */
+    private static final int MAX_STEPS_PER_TICK = 100;
     /** A vanilla server accepts opening a block up to one block beyond the reach. */
     private static final double EXTRA_REACH = 1.0;
 
@@ -75,6 +77,7 @@ public class InventorySearcher {
     private AbstractContainerMenu menu;
     private int phaseTicks;
     private int delayTicks;
+    private int clicksThisTick;
     private volatile int openContainerId = -1;
     private volatile int serverClosedId = -1;
 
@@ -266,6 +269,7 @@ public class InventorySearcher {
     /** Runs at the start of every client tick. */
     public void tick() {
         if (!active) return;
+        clicksThisTick = 0;
         // the terminal or its settings are always open while active, without them container screens would stay blocked
         if (mc.player == null || mc.gui.screen() == null) {
             deactivate();
@@ -341,7 +345,11 @@ public class InventorySearcher {
             case Open -> {
                 // the contents can change while it is open (other players, hoppers, own clicks)
                 takeSnapshot();
-                if (hasWork()) startNext();
+                startJobsHere();
+                // a job that goes on in this container clicks right away
+                if (phase == Phase.Working) work();
+                // scans go on one container per tick, so changes on their way to the open one still arrive
+                else if (phase == Phase.Open && hasWork()) startNext();
             }
             case Holding -> {
                 // Keep the real container open while its server-authoritative cursor is in use.
@@ -352,26 +360,42 @@ public class InventorySearcher {
         }
     }
 
-    /** Clicks for the current withdrawal or deposit, up to the configured clicks per tick. */
+    /**
+     * Clicks for the current withdrawal or deposit, up to the configured clicks per tick. When a job is done here, the
+     * next queued ones go on in the same tick, in this container while it has what they need.
+     */
     private void work() {
-        for (int i = 0; i < config.clicksPerTick; i++) {
+        for (int step = 0; step < MAX_STEPS_PER_TICK && clicksThisTick < config.clicksPerTick; step++) {
             if (deposit != null ? depositClick() : withdrawClick()) continue;
 
             if (withdrawal != null && withdrawal.cursorReady) {
                 setPhase(Phase.Holding);
                 // the stack on the cursor has left the container, the terminal shows that right away
                 takeSnapshot();
-            } else if (withdrawal != null && withdrawal.toCursor && menu.getCarried().isEmpty()) {
-                // Gathering a stack from several containers: the next one is opened right away. With nothing on the
-                // cursor there is nothing to settle, the server handles the clicks, the close and the next open in order.
-                takeSnapshot();
-                setPhase(Phase.Open);
-                startNext();
-            } else {
-                setPhase(Phase.Settling);
+                return;
             }
-            return;
+            if (!menu.getCarried().isEmpty()) {
+                // something is left to put away, after the server had a moment to correct mispredicted clicks
+                setPhase(Phase.Settling);
+                return;
+            }
+            // Nothing on the cursor, so nothing to settle: the server handles the clicks, a close and the next open
+            // in order. That also moves a cursor withdrawal that gathers from several containers on to the next one.
+            takeSnapshot();
+            setPhase(Phase.Open);
+            startJobsHere();
+            if (phase != Phase.Working) return;
         }
+    }
+
+    /** Starts queued withdrawals and deposits while they can use the open container, finished ones are wrapped up on the way. */
+    private void startJobsHere() {
+        // every round finishes a job, starts one in this container or opens another one
+        while (phase == Phase.Open && hasJobs() && mc.player.containerMenu.getCarried().isEmpty()) startNext();
+    }
+
+    private boolean hasJobs() {
+        return withdrawal != null || !withdrawals.isEmpty() || deposit != null || !deposits.isEmpty();
     }
 
     private void startNext() {
@@ -421,7 +445,7 @@ public class InventorySearcher {
     }
 
     private boolean hasWork() {
-        return withdrawal != null || !withdrawals.isEmpty() || deposit != null || !deposits.isEmpty() || !scanQueue.isEmpty();
+        return hasJobs() || !scanQueue.isEmpty();
     }
 
     /** The container that is still open from the last withdrawal or deposit, or null. */
@@ -577,12 +601,15 @@ public class InventorySearcher {
                 w.heldFrom = -1;
                 return true;
             }
-            if (w.remaining() > 0) {
-                Slot into = inventorySlotFor(carried);
-                if (into != null) {
-                    click(into.index, 1, ContainerInput.PICKUP);
-                    return true;
-                }
+            int remaining = w.remaining();
+            Slot into = remaining > 0 ? inventorySlotFor(carried) : null;
+            if (into != null) {
+                int surplus = carried.getCount() - remaining;
+                // put back one at a time while that's the smaller part, then place the rest at once
+                if (surplus <= 0) click(into.index, 0, ContainerInput.PICKUP);
+                else if (surplus < remaining) click(w.heldFrom, 1, ContainerInput.PICKUP);
+                else click(into.index, 1, ContainerInput.PICKUP);
+                return true;
             }
             click(w.heldFrom, 0, ContainerInput.PICKUP);
             w.heldFrom = -1;
@@ -615,8 +642,10 @@ public class InventorySearcher {
             if (countInInventory(w.stack) <= before) return ++w.stalled < MAX_STALLED_CLICKS;
             w.stalled = 0;
         } else {
-            // take the whole stack on the cursor, place exactly what we need, put the rest back
-            click(source.index, 0, ContainerInput.PICKUP);
+            // Split exactly, finished above: a right click takes half the stack. If that's no more than needed it
+            // goes into the inventory at once and the rest comes from what's left, otherwise the few extra go back
+            // one at a time. Taking the whole stack would never leave fewer single items to move.
+            click(source.index, 1, ContainerInput.PICKUP);
             w.heldFrom = source.index;
         }
         return true;
@@ -968,6 +997,7 @@ public class InventorySearcher {
 
     private void click(int slot, int button, ContainerInput input) {
         mc.gameMode.handleContainerInput(menu.containerId, slot, button, input, mc.player);
+        clicksThisTick++;
     }
 
     private int countInInventory(ItemStack stack) {
