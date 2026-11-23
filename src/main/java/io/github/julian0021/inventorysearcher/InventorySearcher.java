@@ -72,7 +72,6 @@ public class InventorySearcher {
     private StorageContainer target;
     private AbstractContainerMenu menu;
     private int phaseTicks;
-    private int snapshotStateId;
     private int delayTicks;
     private volatile int openContainerId = -1;
     private volatile int serverClosedId = -1;
@@ -320,7 +319,10 @@ public class InventorySearcher {
             case Working -> {
                 for (int i = 0; i < config.clicksPerTick; i++) {
                     if (!(deposit != null ? depositClick() : withdrawClick())) {
-                        setPhase(withdrawal != null && withdrawal.cursorReady ? Phase.Holding : Phase.Settling);
+                        boolean holding = withdrawal != null && withdrawal.cursorReady;
+                        setPhase(holding ? Phase.Holding : Phase.Settling);
+                        // the stack on the cursor has left the container, the terminal shows that right away
+                        if (holding) takeSnapshot();
                         break;
                     }
                 }
@@ -344,13 +346,14 @@ public class InventorySearcher {
             }
             case Open -> {
                 // the contents can change while it is open (other players, hoppers, own clicks)
-                if (menu.getStateId() != snapshotStateId) takeSnapshot();
+                takeSnapshot();
                 if (hasWork()) startNext();
             }
             case Holding -> {
                 // Keep the real container open while its server-authoritative cursor is in use.
                 // Opening another container would return or drop the carried stack.
                 if (menu.getCarried().isEmpty()) setPhase(Phase.Settling);
+                else takeSnapshot();
             }
         }
     }
@@ -697,6 +700,14 @@ public class InventorySearcher {
         }
     }
 
+    /** Drops the stack on the cursor like a click outside a vanilla container: button 0 drops all of it, 1 a single item. */
+    public void dropCursor(int button) {
+        if (mc.player == null || !canClickPlayerInventory() || (button != 0 && button != 1)) return;
+        AbstractContainerMenu active = mc.player.containerMenu;
+        if (active.getCarried().isEmpty()) return;
+        mc.gameMode.handleContainerInput(active.containerId, AbstractContainerMenu.SLOT_CLICKED_OUTSIDE, button, ContainerInput.PICKUP, mc.player);
+    }
+
     // Putting items in
 
     /** Puts the stack on the cursor into a free inventory slot and queues storing it in the nearest chest. */
@@ -896,13 +907,25 @@ public class InventorySearcher {
 
     // Cache
 
+    /**
+     * Caches what the open container holds right now, as the client sees it. That includes predicted clicks, which
+     * don't change the state id, so the contents themselves are compared and the terminal is only rebuilt on a change.
+     */
     private void takeSnapshot() {
         if (menu == null || target == null) return;
-        List<ItemStack> items = new ArrayList<>();
-        for (Slot slot : containerSlots()) items.add(slot.getItem().copy());
-        snapshots.put(target.key(), items);
-        snapshotStateId = menu.getStateId();
         failed.remove(target.key());
+
+        List<Slot> slots = containerSlots();
+        List<ItemStack> cached = snapshots.get(target.key());
+        if (cached != null && cached.size() == slots.size()) {
+            boolean changed = false;
+            for (int i = 0; i < slots.size() && !changed; i++) changed = !ItemStack.matches(cached.get(i), slots.get(i).getItem());
+            if (!changed) return;
+        }
+
+        List<ItemStack> items = new ArrayList<>(slots.size());
+        for (Slot slot : slots) items.add(slot.getItem().copy());
+        snapshots.put(target.key(), items);
         rebuildEntries();
     }
 

@@ -18,6 +18,7 @@ No other mods needed, Fabric API is not required.
 | Left / right click item | Pick up a stack / half a stack |
 | Shift + left click item | Move one stack into the inventory |
 | Click grid while holding a stack | Store it in the nearest chest with room |
+| Left / right click outside while holding a stack | Drop the stack / one item |
 | Shift + left click own slot | Store that slot |
 | Exclude key (unbound by default) while looking at a container | Exclude it from searching, or include it again |
 | Ctrl + R / Esc | Rescan / close |

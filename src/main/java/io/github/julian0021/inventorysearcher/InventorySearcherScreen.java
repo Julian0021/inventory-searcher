@@ -294,6 +294,14 @@ public class InventorySearcherScreen extends Screen {
         if (super.mouseClicked(click, doubled)) return true;
 
         double mx = click.x(), my = click.y();
+        if (mx < left || my < top || mx >= left + WIDTH || my >= top + height0) {
+            // like vanilla, a click outside the window drops the held stack, a right click a single item
+            if (searcher.cursorStack().isEmpty()) return false;
+            if (click.button() == InputConstants.MOUSE_BUTTON_LEFT) searcher.dropCursor(0);
+            else if (click.button() == InputConstants.MOUSE_BUTTON_RIGHT) searcher.dropCursor(1);
+            return true;
+        }
+
         int inventoryIndex = playerInventoryAt(mx, my);
         if (inventoryIndex >= 0) {
             if (click.hasShiftDown() && click.button() == InputConstants.MOUSE_BUTTON_LEFT) searcher.depositSlot(inventoryIndex);
