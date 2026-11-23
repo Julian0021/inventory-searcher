@@ -302,7 +302,9 @@ public class InventorySearcher {
                 if (menu.getStateId() != 0) {
                     takeSnapshot();
                     if (withdrawal != null || deposit != null) {
+                        // the contents are there, so the first clicks go out in this tick already
                         setPhase(Phase.Working);
+                        work();
                     } else {
                         // Scans make no inventory changes, so there are no predicted clicks to settle.
                         // Contents have been applied on the main thread before this tick.
@@ -316,17 +318,7 @@ public class InventorySearcher {
                     finishContainer();
                 }
             }
-            case Working -> {
-                for (int i = 0; i < config.clicksPerTick; i++) {
-                    if (!(deposit != null ? depositClick() : withdrawClick())) {
-                        boolean holding = withdrawal != null && withdrawal.cursorReady;
-                        setPhase(holding ? Phase.Holding : Phase.Settling);
-                        // the stack on the cursor has left the container, the terminal shows that right away
-                        if (holding) takeSnapshot();
-                        break;
-                    }
-                }
-            }
+            case Working -> work();
             case Settling -> {
                 // give the server a moment to correct any mispredicted clicks before reading the final contents
                 if (phaseTicks >= (withdrawal != null || deposit != null ? SETTLE_TICKS : 0)) {
@@ -355,6 +347,28 @@ public class InventorySearcher {
                 if (menu.getCarried().isEmpty()) setPhase(Phase.Settling);
                 else takeSnapshot();
             }
+        }
+    }
+
+    /** Clicks for the current withdrawal or deposit, up to the configured clicks per tick. */
+    private void work() {
+        for (int i = 0; i < config.clicksPerTick; i++) {
+            if (deposit != null ? depositClick() : withdrawClick()) continue;
+
+            if (withdrawal != null && withdrawal.cursorReady) {
+                setPhase(Phase.Holding);
+                // the stack on the cursor has left the container, the terminal shows that right away
+                takeSnapshot();
+            } else if (withdrawal != null && withdrawal.toCursor && menu.getCarried().isEmpty()) {
+                // Gathering a stack from several containers: the next one is opened right away. With nothing on the
+                // cursor there is nothing to settle, the server handles the clicks, the close and the next open in order.
+                takeSnapshot();
+                setPhase(Phase.Open);
+                startNext();
+            } else {
+                setPhase(Phase.Settling);
+            }
+            return;
         }
     }
 
@@ -486,7 +500,8 @@ public class InventorySearcher {
     }
 
     private void closeMenu(AbstractContainerMenu toClose, boolean returnCursor) {
-        if (mc.player == null || mc.getConnection() == null) return;
+        // while disconnecting the game mode is already gone, the server puts the cursor away itself then
+        if (mc.player == null || mc.getConnection() == null || mc.gameMode == null) return;
         if (returnCursor) returnCursor(toClose);
 
         mc.getConnection().send(new ServerboundContainerClosePacket(toClose.containerId));
@@ -607,11 +622,13 @@ public class InventorySearcher {
 
     private boolean withdrawCursorClick(Withdrawal w) {
         ItemStack carried = menu.getCarried();
-        int surplus = carried.getCount() - w.amount;
+        // what still has to go on the cursor here, the rest already waits in the inventory
+        int wanted = w.amount - w.staged;
+        int surplus = carried.getCount() - wanted;
 
         // exact split: deal the wanted amount into an empty slot, put the rest back, then pick the split up
         if (w.splitTo >= 0) {
-            if (!carried.isEmpty() && menu.getSlot(w.splitTo).getItem().getCount() < w.amount) return cursorClick(w, w.splitTo, 1);
+            if (!carried.isEmpty() && menu.getSlot(w.splitTo).getItem().getCount() < wanted) return cursorClick(w, w.splitTo, 1);
             if (!carried.isEmpty()) return cursorClick(w, w.heldFrom, 0);
             w.heldFrom = w.splitTo;
             w.splitTo = -1;
@@ -619,7 +636,7 @@ public class InventorySearcher {
         }
 
         if (surplus > 0 && w.heldFrom >= 0) {
-            Slot empty = w.amount < surplus ? emptyContainerSlot() : null;
+            Slot empty = wanted < surplus ? emptyContainerSlot(w.heldFrom) : null;
             if (empty != null) {
                 w.splitTo = empty.index;
                 return cursorClick(w, w.splitTo, 1);
@@ -629,15 +646,13 @@ public class InventorySearcher {
         }
 
         Slot source = null;
-        if (carried.isEmpty()) source = w.wholeBox ? bestShulkerSlot(w.stack) : bestLooseSlot(w.stack, w.amount);
+        if (carried.isEmpty()) source = w.wholeBox ? bestShulkerSlot(w.stack) : bestLooseSlot(w.stack, wanted);
         else if (!w.wholeBox && surplus < 0) source = mergeSlot(w.stack, carried, -surplus);
 
         if (source == null) {
             // nothing here, or the cursor holds all we can get from this container
-            w.cursorReady = !carried.isEmpty();
-            w.cursorTaken = carried.getCount();
             w.heldFrom = -1;
-            return false;
+            return gatherOrHold(w);
         }
 
         w.heldFrom = source.index;
@@ -650,6 +665,66 @@ public class InventorySearcher {
         if (menu.getCarried().getCount() <= before) return ++w.stalled < MAX_STALLED_CLICKS;
         w.stalled = 0;
         return true;
+    }
+
+    /**
+     * Called when nothing more from this container fits on the cursor. The cursor can't come along to the next
+     * container, the server puts it back into the inventory when a container closes. So while more is needed, the
+     * stack waits in one free inventory slot. Once nothing more is needed, or there is nothing more anywhere, the
+     * waiting stack is picked up again together with the cursor and held.
+     *
+     * @return true to keep clicking in this container
+     */
+    private boolean gatherOrHold(Withdrawal w) {
+        ItemStack carried = menu.getCarried();
+        boolean needMore = !w.wholeBox && w.staged + carried.getCount() < w.amount;
+        boolean moreHere = needMore && bestLooseSlot(w.stack, 1) != null;
+        if (needMore && (moreHere || w.bestUntried() != null)) {
+            // nothing on the cursor means nothing was here, on to the next container
+            if (carried.isEmpty()) return false;
+            Slot stage = stageSlot(w);
+            if (stage != null) {
+                int count = carried.getCount();
+                click(stage.index, 0, ContainerInput.PICKUP);
+                if (menu.getCarried().isEmpty()) {
+                    w.stageSlot = stage.getContainerSlot();
+                    w.staged += count;
+                    return moreHere;
+                }
+            } else {
+                w.inventoryFull = true;
+            }
+        }
+
+        Slot stage = w.staged > 0 ? playerSlot(w.stageSlot) : null;
+        if (stage != null && ItemStack.isSameItemSameComponents(stage.getItem(), w.stack)) {
+            // everything fits on one stack, so put the cursor onto the waiting stack and pick both up together
+            if (!menu.getCarried().isEmpty()) click(stage.index, 0, ContainerInput.PICKUP);
+            click(stage.index, 0, ContainerInput.PICKUP);
+            w.staged = 0;
+        }
+
+        carried = menu.getCarried();
+        w.cursorReady = !carried.isEmpty();
+        w.cursorTaken = carried.getCount();
+        return false;
+    }
+
+    /** The inventory slot the stack waits in between containers, a free one in the main inventory if possible. */
+    private Slot stageSlot(Withdrawal w) {
+        if (w.stageSlot >= 0) {
+            Slot slot = playerSlot(w.stageSlot);
+            boolean usable = slot != null && (slot.getItem().isEmpty() || ItemStack.isSameItemSameComponents(slot.getItem(), w.stack));
+            return usable ? slot : null;
+        }
+
+        Slot hotbar = null;
+        for (Slot slot : menu.slots) {
+            if (slot.container != mc.player.getInventory() || slot.getContainerSlot() >= 36 || !slot.getItem().isEmpty()) continue;
+            if (slot.getContainerSlot() >= 9) return slot;
+            if (hotbar == null) hotbar = slot;
+        }
+        return hotbar;
     }
 
     private boolean cursorClick(Withdrawal w, int slot, int button) {
@@ -672,9 +747,10 @@ public class InventorySearcher {
         return best;
     }
 
-    private Slot emptyContainerSlot() {
+    /** An empty container slot other than the one the cursor was picked up from, splitting into that one never ends. */
+    private Slot emptyContainerSlot(int except) {
         for (Slot slot : containerSlots()) {
-            if (slot.getItem().isEmpty() && slot.mayPlace(menu.getCarried())) return slot;
+            if (slot.index != except && slot.getItem().isEmpty() && slot.mayPlace(menu.getCarried())) return slot;
         }
         return null;
     }
@@ -820,7 +896,10 @@ public class InventorySearcher {
 
         String name = w.stack.getHoverName().getString();
         if (w.toCursor) {
-            status = w.cursorTaken > 0 ? "Picked up " + w.cursorTaken + "x " + (w.wholeBox ? "shulker box" : name) : "Couldn't pick up " + name;
+            if (w.staged > 0) status = "The last container couldn't be opened, " + w.staged + "x " + name + " went into the inventory";
+            else if (w.cursorTaken == 0) status = "Couldn't pick up " + name;
+            else if (w.inventoryFull && w.cursorTaken < w.amount) status = "Picked up " + w.cursorTaken + "x " + name + ", no free slot to gather more";
+            else status = "Picked up " + w.cursorTaken + "x " + (w.wholeBox ? "shulker box" : name);
         } else if (w.wholeBox) {
             status = w.boxesTaken > 0 ? "Took a shulker box with " + name : "Couldn't take a shulker box with " + name;
         } else {
@@ -1156,6 +1235,9 @@ public class InventorySearcher {
         final Set<BlockPos> tried = new HashSet<>();
         int heldFrom = -1;
         int splitTo = -1;
+        /** The inventory slot (0-35) a cursor withdrawal collects in while it needs several containers. */
+        int stageSlot = -1;
+        int staged;
         int stalled;
         int boxesTaken;
         boolean inventoryFull;
@@ -1168,7 +1250,7 @@ public class InventorySearcher {
         }
 
         int remaining() {
-            if (toCursor) return amount - (menu == null ? 0 : menu.getCarried().getCount());
+            if (toCursor) return amount - staged - (menu == null ? 0 : menu.getCarried().getCount());
             if (wholeBox) return amount - boxesTaken;
             return amount - (countInInventory(stack) - carriedAtStart);
         }
@@ -1186,6 +1268,16 @@ public class InventorySearcher {
                 return open;
             }
 
+            StorageContainer best = bestUntried();
+            if (best != null) {
+                tried.add(best.key());
+                stalled = 0;
+            }
+            return best;
+        }
+
+        /** The container we haven't tried yet that has the most of the item according to the cache, or null. */
+        StorageContainer bestUntried() {
             StorageContainer best = null;
             int bestCount = 0;
             for (Map.Entry<BlockPos, List<ItemStack>> snapshot : snapshots.entrySet()) {
@@ -1198,11 +1290,6 @@ public class InventorySearcher {
                     best = container;
                     bestCount = count;
                 }
-            }
-
-            if (best != null) {
-                tried.add(best.key());
-                stalled = 0;
             }
             return best;
         }
