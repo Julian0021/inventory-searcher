@@ -25,6 +25,18 @@ No other mods needed, Fabric API is not required.
 
 Search by name, `@mod` or `#tooltip`. Items only stored inside shulker boxes are taken as a whole box. The last used container stays open until another one is needed.
 
+### Crafting table
+
+The chest button at the right edge of a crafting table scans the containers in reach and opens a storage panel next to it.
+
+| Input | Action |
+|---|---|
+| Left / right click item in the panel | Move a stack / half a stack into the inventory |
+| Click the panel while holding a stack | Store it in the nearest chest with room |
+| Recipe in the recipe book | Takes what's missing out of the containers and places the recipe, shift for as many as possible |
+
+The recipe book counts the stored items, so recipes made from them show up as craftable. A server keeps only one menu open, so the crafting table closes while the containers are opened and opens again afterwards. Items in the crafting grid go into the inventory first and back into the same slots, nothing drops. Where the screen is too narrow for everything side by side, the recipe book lies over the crafting table like on small screens.
+
 ## Settings
 
 Via the **Settings** button in the terminal or Mod Menu, saved in `config/inventory-searcher.json`. Both keys are under *Inventory Searcher* in the vanilla controls.

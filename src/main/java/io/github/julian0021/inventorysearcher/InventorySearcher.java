@@ -3,8 +3,11 @@ package io.github.julian0021.inventorysearcher;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
+import net.minecraft.client.gui.screens.inventory.CraftingScreen;
+import net.minecraft.client.gui.screens.recipebook.RecipeCollection;
 import net.minecraft.ChatFormatting;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.Holder;
 import net.minecraft.core.Direction;
 import net.minecraft.core.component.DataComponents;
 import net.minecraft.core.registries.BuiltInRegistries;
@@ -16,14 +19,21 @@ import net.minecraft.world.Container;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.entity.player.Inventory;
+import net.minecraft.world.entity.player.StackedItemContents;
 import net.minecraft.world.inventory.AbstractContainerMenu;
 import net.minecraft.world.inventory.ContainerInput;
+import net.minecraft.world.inventory.CraftingMenu;
+import net.minecraft.world.inventory.RecipeBookMenu;
 import net.minecraft.world.inventory.Slot;
 import net.minecraft.world.item.BlockItem;
+import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.item.component.ItemContainerContents;
+import net.minecraft.world.item.crafting.display.RecipeDisplayEntry;
+import net.minecraft.world.item.crafting.display.RecipeDisplayId;
 import net.minecraft.world.level.block.ChestBlock;
+import net.minecraft.world.level.block.CraftingTableBlock;
 import net.minecraft.world.level.block.ShulkerBoxBlock;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.entity.BlockEntityType;
@@ -80,9 +90,20 @@ public class InventorySearcher {
     private int clicksThisTick;
     private volatile int openContainerId = -1;
     private volatile int serverClosedId = -1;
+    /** Containers closed on the client whose last updates may still be on their way, by container id. */
+    private final Map<Integer, AbstractContainerMenu> closedMenus = new HashMap<>();
 
     private boolean closingTerminal;
     private String status = "";
+
+    // The panel next to a crafting table
+
+    private CraftingSession crafting;
+    private BlockPos lastCraftingTable;
+    /** A container the searcher was still opening when it stopped is closed right away when it shows up after all. */
+    private int ignoreLateOpenTicks;
+    /** A screen to lay out again at the start of the next tick, not in the middle of the click that opened or closed the panel. */
+    private Screen relayout;
 
     public InventorySearcher(SearcherConfig config) {
         this.config = config;
@@ -103,6 +124,7 @@ public class InventorySearcher {
     public void activate() {
         if (active || mc.player == null || mc.level == null) return;
         active = true;
+        ignoreLateOpenTicks = 0;
 
         resetWork();
         clearCache();
@@ -115,11 +137,16 @@ public class InventorySearcher {
     public void deactivate() {
         if (!active) return;
         active = false;
+        CraftingSession session = crafting;
+        crafting = null;
+        if (phase == Phase.Opening || session != null && session.isReopening()) ignoreLateOpenTicks = config.openTimeout * 2;
 
         if (menu != null) closeMenu(menu, true);
-        else if (mc.player != null && !mc.player.inventoryMenu.getCarried().isEmpty()) closeMenu(mc.player.inventoryMenu, true);
+        // a close packet closes whatever is open on the server, next to a crafting table that would be the table
+        else if (session == null && mc.player != null && !mc.player.inventoryMenu.getCarried().isEmpty()) closeMenu(mc.player.inventoryMenu, true);
         resetWork();
         clearCache();
+        if (session != null) session.end();
 
         if (!closingTerminal && mc.gui.screen() instanceof InventorySearcherScreen) {
             closingTerminal = true;
@@ -237,6 +264,13 @@ public class InventorySearcher {
      * The menu is already assigned to the player at this point, only its screen is about to be shown.
      */
     public boolean onSetScreen(Screen newScreen) {
+        if (!active && ignoreLateOpenTicks > 0 && newScreen instanceof AbstractContainerScreen<?> late && late.getMenu().containerId != 0) {
+            // opened for the searcher, which has stopped since
+            ignoreLateOpenTicks = 0;
+            closeMenu(late.getMenu(), false);
+            return true;
+        }
+        if (active && crafting != null && crafting.onTableOpened(newScreen)) return false;
         if (!active || !(newScreen instanceof AbstractContainerScreen<?> screen)) return false;
         AbstractContainerMenu opened = screen.getMenu();
         if (opened.containerId == 0) return false; // the player's own inventory
@@ -264,10 +298,53 @@ public class InventorySearcher {
         return false;
     }
 
+    // Updates for containers that are already closed on the client
+
+    /*
+     * The client closes a container right away, the server only when the close packet arrives. Until then the server
+     * still sends the container's updates, which the game drops because that container isn't open anymore. The server
+     * counts them as received though, takes that over for the player's inventory when it closes the container and
+     * never sends them again. Items that arrive in that moment would be missing on the client until the next container
+     * opens, so the player's own slots from those updates are applied here, as if the container were still open.
+     */
+
+    /** Called on the main thread when the server opens a container. It handled every close before, nothing more comes for those. */
+    public void onServerOpenedContainer() {
+        closedMenus.clear();
+    }
+
+    /** Called on the main thread for every slot update, before the game handles it. */
+    public void onSlotUpdate(int containerId, int slot, ItemStack item) {
+        AbstractContainerMenu closed = closedMenu(containerId);
+        if (closed != null && slot >= 0 && slot < closed.slots.size()) applyToInventory(closed.getSlot(slot), item);
+    }
+
+    /** Called on the main thread for every full content update, before the game handles it. */
+    public void onContentUpdate(int containerId, List<ItemStack> items) {
+        AbstractContainerMenu closed = closedMenu(containerId);
+        if (closed == null) return;
+        for (int i = 0; i < Math.min(items.size(), closed.slots.size()); i++) applyToInventory(closed.getSlot(i), items.get(i));
+    }
+
+    private AbstractContainerMenu closedMenu(int containerId) {
+        if (mc.player == null || containerId <= 0 || containerId == mc.player.containerMenu.containerId) return null;
+        return closedMenus.get(containerId);
+    }
+
+    private void applyToInventory(Slot slot, ItemStack item) {
+        // the container's own slots are read again when it opens the next time
+        if (slot.container == mc.player.getInventory()) slot.set(item.copy());
+    }
+
     // Work loop
 
     /** Runs at the start of every client tick. */
     public void tick() {
+        if (ignoreLateOpenTicks > 0) ignoreLateOpenTicks--;
+        if (relayout != null) {
+            if (mc.gui.screen() == relayout) relayout.resize(relayout.width, relayout.height);
+            relayout = null;
+        }
         if (!active) return;
         clicksThisTick = 0;
         // the terminal or its settings are always open while active, without them container screens would stay blocked
@@ -291,6 +368,9 @@ public class InventorySearcher {
             finishContainer();
             return;
         }
+
+        // next to a crafting table the work waits while the table is open
+        if (crafting != null && crafting.tick()) return;
 
         phaseTicks++;
         switch (phase) {
@@ -444,7 +524,7 @@ public class InventorySearcher {
         open(next);
     }
 
-    private boolean hasWork() {
+    boolean hasWork() {
         return hasJobs() || !scanQueue.isEmpty();
     }
 
@@ -478,22 +558,17 @@ public class InventorySearcher {
         target = container;
         menu = null;
         setPhase(Phase.Opening);
+        interactWith(container.closestBlock(mc.player.getEyePosition()));
+    }
 
+    /** Uses the block like a right click on the side facing the player, turned towards it first if rotating is on. */
+    void interactWith(BlockPos pos) {
         Vec3 eye = mc.player.getEyePosition();
-        BlockPos pos = container.closestBlock(eye);
         Vec3 center = Vec3.atCenterOf(pos);
         Direction side = Direction.getApproximateNearest(eye.subtract(center));
         Vec3 hit = center.add(side.getStepX() * 0.5, side.getStepY() * 0.5, side.getStepZ() * 0.5);
-        BlockHitResult hitResult = new BlockHitResult(hit, side, pos, false);
-
-        Runnable interact = () -> {
-            if (phase == Phase.Opening && target == container && mc.player != null) {
-                interact(hitResult);
-            }
-        };
-
         if (config.rotate) lookAt(hit);
-        interact.run();
+        interact(new BlockHitResult(hit, side, pos, false));
     }
 
     /** Turns the player towards the container on the server only, the camera stays where it is. */
@@ -525,7 +600,7 @@ public class InventorySearcher {
         version++;
     }
 
-    private void closeMenu(AbstractContainerMenu toClose, boolean returnCursor) {
+    void closeMenu(AbstractContainerMenu toClose, boolean returnCursor) {
         // while disconnecting the game mode is already gone, the server puts the cursor away itself then
         if (mc.player == null || mc.getConnection() == null || mc.gameMode == null) return;
         if (returnCursor) returnCursor(toClose);
@@ -533,6 +608,7 @@ public class InventorySearcher {
         mc.getConnection().send(new ServerboundContainerClosePacket(toClose.containerId));
         if (mc.player.containerMenu == toClose) mc.player.containerMenu = mc.player.inventoryMenu;
         if (toClose == menu) openContainerId = -1;
+        if (toClose.containerId > 0) closedMenus.put(toClose.containerId, toClose);
     }
 
     private void returnCursor(AbstractContainerMenu toClose) {
@@ -561,6 +637,162 @@ public class InventorySearcher {
     private void setPhase(Phase phase) {
         this.phase = phase;
         this.phaseTicks = 0;
+    }
+
+    // The panel next to a crafting table
+
+    /** Called before the player uses a block, crafting tables are remembered for the panel next to them. */
+    public void onUseItemOn(BlockHitResult hit) {
+        if (mc.level != null && mc.level.getBlockState(hit.getBlockPos()).getBlock() instanceof CraftingTableBlock) {
+            lastCraftingTable = hit.getBlockPos().immutable();
+        }
+    }
+
+    /** The panel next to a crafting table, or null while it isn't open. */
+    public CraftingSession crafting() {
+        return crafting;
+    }
+
+    /** Whether the panel can open next to this crafting table screen: the table is known, still there and in reach. */
+    public boolean canOpenCraftingPanel(CraftingScreen screen) {
+        if (active || mc.player == null || mc.level == null || lastCraftingTable == null) return false;
+        if (mc.player.containerMenu != screen.getMenu()) return false;
+        return mc.level.getBlockState(lastCraftingTable).getBlock() instanceof CraftingTableBlock && inReach(lastCraftingTable);
+    }
+
+    /** The button next to the crafting table: scans the containers and opens the panel, or closes it again. */
+    public void toggleCraftingPanel(CraftingScreen screen) {
+        if (crafting != null) {
+            if (crafting.isIdle()) deactivate();
+            return;
+        }
+        if (!canOpenCraftingPanel(screen)) return;
+        active = true;
+        resetWork();
+        clearCache();
+        closingTerminal = false;
+        ignoreLateOpenTicks = 0;
+        crafting = new CraftingSession(this, config, screen, lastCraftingTable);
+        // the window may have to move to make room for the panel
+        relayout = screen;
+        scan();
+    }
+
+    /** Whether the panel is open next to the crafting table of this recipe book. */
+    public boolean hasCraftingPanel(RecipeBookMenu menu) {
+        return crafting != null && crafting.isHostMenu(menu);
+    }
+
+    /** Lays the screen out again at the start of the next tick, the window moves back when the panel closes. */
+    void relayoutLater(Screen screen) {
+        relayout = screen;
+    }
+
+    /** Called when a screen goes away, the panel ends with its crafting table screen. */
+    public void onScreenRemoved(Screen screen) {
+        if (crafting == null || !crafting.isHost(screen)) return;
+        crafting.hostRemoved();
+        deactivate();
+    }
+
+    /**
+     * Called before a container screen closes, returns true to keep the game from closing it. While the crafting table
+     * is closed for the panel, the game's close would hit the container the searcher has open, the server doesn't check
+     * which one is meant.
+     */
+    public boolean onContainerScreenClose(Screen screen) {
+        if (crafting == null || !crafting.isHost(screen) || crafting.tableOpenOnServer()) return false;
+        mc.gui.setScreen(null);
+        return true;
+    }
+
+    /** Whether clicks in this crafting table screen have to wait, its table isn't open on the server right now. */
+    public boolean blocksCraftingInput(Object screen) {
+        return crafting != null && crafting.isHost(screen) && !crafting.acceptsCraftingInput();
+    }
+
+    /** Called while the recipe book counts what's there: with the panel open, the stored items count too. */
+    public void accountStoredItems(RecipeBookMenu menu, StackedItemContents contents) {
+        if (crafting == null || !(menu instanceof CraftingMenu)) return;
+        for (Entry entry : entries) {
+            if (entry.loose <= 0 || !Inventory.isUsableForCrafting(entry.stack)) continue;
+            contents.accountStack(entry.stack.copyWithCount((int) Math.min(entry.loose, Integer.MAX_VALUE)), Integer.MAX_VALUE);
+        }
+    }
+
+    /**
+     * Called when a recipe in the recipe book is clicked, returns true when it's handled here. With the panel open, what
+     * the recipe still needs is taken out of the containers, and the recipe is placed once the table is open again.
+     */
+    public boolean onPlaceRecipe(RecipeBookMenu menu, RecipeCollection collection, RecipeDisplayId id, boolean useMax) {
+        if (crafting == null || !(menu instanceof CraftingMenu table) || mc.player == null) return false;
+        boolean tableOpen = crafting.acceptsCraftingInput();
+        // with something on the cursor the game handles the click as usual
+        if (tableOpen && !mc.player.containerMenu.getCarried().isEmpty()) return false;
+
+        RecipeDisplayEntry entry = collection.getRecipes().stream().filter(e -> e.id().equals(id)).findFirst().orElse(null);
+        Map<Holder<Item>, Integer> missing = null;
+        if (entry != null && entry.craftingRequirements().isPresent()) {
+            List<ItemStack> owned = new ArrayList<>();
+            for (int i = 0; i < 36; i++) owned.add(mc.player.getInventory().getItem(i));
+            for (int i = 1; i <= 9; i++) owned.add(table.getSlot(i).getItem());
+            missing = RecipeMaterials.missing(entry.craftingRequirements().get(), useMax, owned, entries);
+        }
+
+        if (missing == null || missing.isEmpty()) {
+            // Everything is there, or not even the containers have enough: the game places it or shows what's missing.
+            // While the table is closed that has to wait until it's open again.
+            if (tableOpen) return false;
+            crafting.placeRecipeLater(id, useMax);
+            return true;
+        }
+
+        List<Entry> sources = new ArrayList<>(entries);
+        sources.sort(Comparator.comparingLong((Entry e) -> e.loose).reversed());
+        for (Map.Entry<Holder<Item>, Integer> needed : missing.entrySet()) {
+            int amount = needed.getValue();
+            for (Entry source : sources) {
+                if (amount <= 0) break;
+                if (source.loose <= 0 || !source.stack.is(needed.getKey()) || !Inventory.isUsableForCrafting(source.stack)) continue;
+                int take = (int) Math.min(amount, source.loose);
+                queueWithdrawal(source, take, false);
+                amount -= take;
+            }
+        }
+        crafting.placeRecipeLater(id, useMax);
+        return true;
+    }
+
+    /** No container open, or only the one kept open after the last job: the searcher waits for work. */
+    boolean isWaitingForWork() {
+        return (phase == Phase.Idle && menu == null) || phase == Phase.Open;
+    }
+
+    /** Closes the container kept open after the last job. */
+    void closeHeldContainer() {
+        if (phase != Phase.Open || menu == null) return;
+        closeMenu(menu, true);
+        finishContainer();
+    }
+
+    /** Drops every queued job and scan with a message, items already on their way stay where they are. */
+    void dropJobs(String message) {
+        withdrawals.clear();
+        withdrawal = null;
+        deposits.clear();
+        deposit = null;
+        scanQueue.clear();
+        scanning = false;
+        status = message;
+        version++;
+    }
+
+    /** The inventory slots (0-35) queued for storing, their stacks are about to leave. */
+    Set<Integer> depositSlots() {
+        Set<Integer> slots = new HashSet<>();
+        if (deposit != null) slots.add(deposit.slot);
+        for (Deposit queued : deposits) slots.add(queued.slot);
+        return slots;
     }
 
     // Taking items out
@@ -836,6 +1068,8 @@ public class InventorySearcher {
         if (free == null) {
             // without a free slot the stack can't be staged, so it goes back where it can
             if (phase == Phase.Holding) {
+                // finishing the withdrawal keeps this status instead of reporting the pick up
+                if (withdrawal != null) withdrawal.putBack = true;
                 status = "Inventory full, put " + carried.getHoverName().getString() + " back";
                 setPhase(Phase.Settling);
             } else {
@@ -927,6 +1161,7 @@ public class InventorySearcher {
 
         String name = w.stack.getHoverName().getString();
         if (w.toCursor) {
+            if (w.putBack) return;
             if (w.staged > 0) status = "The last container couldn't be opened, " + w.staged + "x " + name + " went into the inventory";
             else if (w.cursorTaken == 0) status = "Couldn't pick up " + name;
             else if (w.inventoryFull && w.cursorTaken < w.amount) status = "Picked up " + w.cursorTaken + "x " + name + ", no free slot to gather more";
@@ -996,8 +1231,17 @@ public class InventorySearcher {
     }
 
     private void click(int slot, int button, ContainerInput input) {
-        mc.gameMode.handleContainerInput(menu.containerId, slot, button, input, mc.player);
+        clickIn(menu, slot, button, input);
+    }
+
+    /** A click in any menu that counts towards the clicks per tick. */
+    void clickIn(AbstractContainerMenu target, int slot, int button, ContainerInput input) {
+        mc.gameMode.handleContainerInput(target.containerId, slot, button, input, mc.player);
         clicksThisTick++;
+    }
+
+    boolean hasClickBudget() {
+        return clicksThisTick < config.clicksPerTick;
     }
 
     private int countInInventory(ItemStack stack) {
@@ -1100,7 +1344,7 @@ public class InventorySearcher {
 
     // Containers
 
-    private boolean inReach(BlockPos pos) {
+    boolean inReach(BlockPos pos) {
         return mc.player.isWithinBlockInteractionRange(pos, reachBuffer());
     }
 
@@ -1278,6 +1522,8 @@ public class InventorySearcher {
         int stalled;
         int boxesTaken;
         boolean inventoryFull;
+        /** The held stack couldn't be stored from a full inventory and went back into the container. */
+        boolean putBack;
 
         Withdrawal(ItemStack stack, int amount, boolean wholeBox, boolean toCursor) {
             this.stack = stack;

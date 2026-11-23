@@ -4,10 +4,18 @@
   "package": "io.github.julian0021.inventorysearcher.mixin",
   "compatibilityLevel": "JAVA_21",
   "client": [
+    "AbstractContainerScreenAccessor",
+    "AbstractContainerScreenMixin",
+    "AbstractRecipeBookScreenAccessor",
+    "AbstractRecipeBookScreenMixin",
     "ClientPacketListenerMixin",
+    "CraftingScreenMixin",
     "GuiMixin",
     "MinecraftMixin",
-    "OptionsMixin"
+    "MultiPlayerGameModeMixin",
+    "OptionsMixin",
+    "RecipeBookComponentAccessor",
+    "RecipeBookComponentMixin"
   ],
   "injectors": {
     "defaultRequire": 1
