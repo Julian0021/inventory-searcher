@@ -993,7 +993,8 @@ public class InventorySearcher {
      * don't change the state id, so the contents themselves are compared and the terminal is only rebuilt on a change.
      */
     private void takeSnapshot() {
-        if (menu == null || target == null) return;
+        // a rescan can drop the container that is still open (out of reach, excluded, no longer searched)
+        if (menu == null || target == null || !containers.containsKey(target.key())) return;
         failed.remove(target.key());
 
         List<Slot> slots = containerSlots();
