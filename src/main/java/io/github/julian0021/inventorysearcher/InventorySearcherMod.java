@@ -12,8 +12,8 @@ public class InventorySearcherMod implements ClientModInitializer {
 
     private static final KeyMapping OPEN_KEY = new KeyMapping(
         "key.inventory-searcher.open",
-        InputConstants.Type.MOUSE,
-        InputConstants.MOUSE_BUTTON_4,
+        InputConstants.Type.KEYBOARD,
+        InputConstants.KEY_M,
         KeyMapping.Category.register(Identifier.fromNamespaceAndPath(MOD_ID, "main"))
     );
 

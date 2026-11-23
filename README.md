@@ -16,7 +16,7 @@ No other mods needed, Fabric API is not required.
 
 | Input | Action |
 |---|---|
-| Mouse 4 (rebindable) | Scan and open the terminal |
+| M (rebindable) | Scan and open the terminal |
 | Left / right click item | Pick up a stack / half a stack |
 | Shift + left click item | Move one stack into the inventory |
 | Click grid while holding a stack | Store it in the nearest chest with room |
