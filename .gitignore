@@ -5,3 +5,7 @@ out/
 .idea/
 *.iml
 .vscode/
+
+# local client gametests, see gametest.gradle
+/gametest.gradle
+/src/gametest/

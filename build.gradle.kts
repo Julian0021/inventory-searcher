@@ -70,3 +70,6 @@ tasks {
         from("LICENSE")
     }
 }
+
+// local client gametests, only when gametest.gradle exists (it's not committed)
+if (file("gametest.gradle").exists()) apply(from = "gametest.gradle")
