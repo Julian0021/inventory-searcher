@@ -68,7 +68,8 @@ public class SettingsScreen extends OptionsSubScreen {
         list.addHeader(Component.translatable("inventory-searcher.settings.general"));
         list.addSmall(
             bool("rotate", config.rotate, value -> config.rotate = value),
-            bool("swing", config.swing, value -> config.swing = value)
+            bool("swing", config.swing, value -> config.swing = value),
+            bool("extra_reach", config.extraReach, value -> config.extraReach = value)
         );
         list.addBig(Button.builder(Component.translatable("inventory-searcher.settings.keybind"), button -> minecraft.gui.setScreen(new KeyBindsScreen(this, options)))
             .tooltip(Tooltip.create(Component.translatable("inventory-searcher.settings.keybind.tooltip")))

@@ -51,6 +51,7 @@ public class SearcherConfig {
     );
     public boolean rotate = false;
     public boolean swing = false;
+    public boolean extraReach = true;
 
     // Timing
     public int openDelay = 0;

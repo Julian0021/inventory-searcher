@@ -18,6 +18,8 @@
   "inventory-searcher.settings.rotate.tooltip": "Looks at each container before opening it.",
   "inventory-searcher.settings.swing": "Swing",
   "inventory-searcher.settings.swing.tooltip": "Swings your hand when opening a container.",
+  "inventory-searcher.settings.extra_reach": "Extra Reach",
+  "inventory-searcher.settings.extra_reach.tooltip": "Also opens containers up to one block beyond your reach. Vanilla servers accept that, anticheat plugins may flag it.",
   "inventory-searcher.settings.keybind": "Key Binds...",
   "inventory-searcher.settings.keybind.tooltip": "The key to open the terminal is under Inventory Searcher in the controls.",
   "inventory-searcher.settings.open_delay": "Open Delay",

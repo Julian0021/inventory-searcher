@@ -44,6 +44,8 @@ import java.util.*;
 public class InventorySearcher {
     private static final int MAX_STALLED_CLICKS = 3;
     private static final int SETTLE_TICKS = 2;
+    /** A vanilla server accepts opening a block up to one block beyond the reach. */
+    private static final double EXTRA_REACH = 1.0;
 
     private final Minecraft mc = Minecraft.getInstance();
     private final SearcherConfig config;
@@ -216,7 +218,7 @@ public class InventorySearcher {
     private List<BlockEntity> blockEntitiesInReach() {
         List<BlockEntity> found = new ArrayList<>();
         BlockPos center = mc.player.blockPosition();
-        int range = (int) Math.ceil(mc.player.blockInteractionRange()) + 1;
+        int range = (int) Math.ceil(mc.player.blockInteractionRange() + reachBuffer()) + 1;
         for (int cx = (center.getX() - range) >> 4; cx <= (center.getX() + range) >> 4; cx++) {
             for (int cz = (center.getZ() - range) >> 4; cz <= (center.getZ() + range) >> 4; cz++) {
                 found.addAll(mc.level.getChunk(cx, cz).getBlockEntities().values());
@@ -1068,7 +1070,11 @@ public class InventorySearcher {
     // Containers
 
     private boolean inReach(BlockPos pos) {
-        return mc.player.isWithinBlockInteractionRange(pos, 0);
+        return mc.player.isWithinBlockInteractionRange(pos, reachBuffer());
+    }
+
+    private double reachBuffer() {
+        return config.extraReach ? EXTRA_REACH : 0;
     }
 
     private boolean inReach(StorageContainer container) {

@@ -31,6 +31,7 @@ Via the **Settings** button in the terminal or Mod Menu, saved in `config/invent
 
 - **Containers:** chest, trapped chest, barrel, shulker box, ender chest, furnace (more selectable)
 - **Rotate / Swing:** off
+- **Extra reach:** on, also opens containers up to one block beyond your reach (vanilla servers accept it, anticheat plugins may flag it)
 - **Open delay / timeout:** 0 / 20 ticks
 - **Clicks per tick:** 4
 - **Shulker contents:** on
