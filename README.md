@@ -2,6 +2,8 @@
 
 Client-side Fabric mod for Minecraft 26.3. One key scans every container in reach without opening its screen and lists all contents in a searchable terminal, like an ME system.
 
+![The terminal listing five containers, the tooltip shows where the diamonds are stored](docs/terminal.png)
+
 ## Install
 
 1. Install [Fabric Loader](https://fabricmc.net/use/) for Minecraft 26.3.
@@ -28,6 +30,8 @@ Search by name, `@mod` or `#tooltip`. Items only stored inside shulker boxes are
 ### Crafting table
 
 The chest button at the right edge of a crafting table scans the containers in reach and opens a storage panel next to it.
+
+![A crafting table with the recipe book on the left and the storage panel on the right, an iron pickaxe placed from stored iron and sticks](docs/crafting.png)
 
 | Input | Action |
 |---|---|
