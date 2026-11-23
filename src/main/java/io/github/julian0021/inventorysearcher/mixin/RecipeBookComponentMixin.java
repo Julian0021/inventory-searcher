@@ -3,7 +3,10 @@ package io.github.julian0021.inventorysearcher.mixin;
 import io.github.julian0021.inventorysearcher.CraftingPanel;
 import io.github.julian0021.inventorysearcher.InventorySearcher;
 import io.github.julian0021.inventorysearcher.InventorySearcherMod;
+import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.screens.recipebook.RecipeBookComponent;
+import net.minecraft.client.gui.screens.recipebook.RecipeBookPage;
+import net.minecraft.client.gui.screens.recipebook.RecipeBookTabButton;
 import net.minecraft.client.gui.screens.recipebook.RecipeCollection;
 import net.minecraft.world.entity.player.StackedItemContents;
 import net.minecraft.world.inventory.RecipeBookMenu;
@@ -26,6 +29,10 @@ public abstract class RecipeBookComponentMixin {
     @Shadow private boolean widthTooNarrow;
     @Shadow private int width;
     @Shadow private int xOffset;
+    @Shadow private EditBox searchBox;
+    @Shadow private String lastSearch;
+    @Shadow private RecipeBookTabButton selectedTab;
+    @Shadow @Final private RecipeBookPage recipeBookPage;
 
     /** The crafting window's width, known once the screen asked for its position. */
     @Unique private int inventorySearcher$imageWidth = 176;
@@ -40,6 +47,22 @@ public abstract class RecipeBookComponentMixin {
     private void inventorySearcher$makeRoomForPanel(int width, int imageWidth, CallbackInfoReturnable<Integer> cir) {
         inventorySearcher$imageWidth = imageWidth;
         cir.setReturnValue(cir.getReturnValue() - inventorySearcher$shift(isVisible()));
+    }
+
+    // The panel opens the crafting table again for every recipe and every item it takes, each time with a new recipe book.
+    // Before the new one builds its parts, it takes over the search, tab and page of the old one, which keeps them the
+    // same way when the window is resized.
+    @Inject(method = "initVisuals", at = @At("HEAD"))
+    private void inventorySearcher$keepSearch(CallbackInfo ci) {
+        InventorySearcher searcher = InventorySearcherMod.searcher();
+        if (searchBox != null || searcher == null) return;
+        RecipeBookComponentAccessor previous = (RecipeBookComponentAccessor) searcher.takePreviousRecipeBook(menu);
+        if (previous == null) return;
+        searchBox = previous.inventorySearcher$searchBox();
+        lastSearch = previous.inventorySearcher$lastSearch();
+        selectedTab = previous.inventorySearcher$selectedTab();
+        int page = ((RecipeBookPageAccessor) previous.inventorySearcher$recipeBookPage()).inventorySearcher$currentPage();
+        ((RecipeBookPageAccessor) recipeBookPage).inventorySearcher$setCurrentPage(page);
     }
 
     // the recipe book, its tabs and everything else on it are placed from this offset

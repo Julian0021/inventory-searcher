@@ -11,6 +11,7 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.world.inventory.AbstractContainerMenu;
 import net.minecraft.world.inventory.ContainerInput;
 import net.minecraft.world.inventory.CraftingMenu;
+import net.minecraft.world.inventory.RecipeBookMenu;
 import net.minecraft.world.inventory.Slot;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.crafting.display.RecipeDisplayId;
@@ -63,6 +64,8 @@ public final class CraftingSession {
     private final Set<Integer> unrestorable = new HashSet<>();
     private int restoreClicks;
     private RecipeDisplayId pendingRecipe;
+    /** The recipe book of the screen before the table opened again, until the new one took over its search. */
+    private RecipeBookComponent<?> previousBook;
     private boolean pendingUseMax;
 
     private int countedVersion = -1;
@@ -210,10 +213,20 @@ public final class CraftingSession {
     /** Called when a screen is about to show, returns whether it is the crafting table opening again. */
     boolean onTableOpened(Screen screen) {
         if (stage != Stage.Reopening || !(screen instanceof CraftingScreen crafting)) return false;
-        // the new screen shows up as usual and takes over the panel
+        // the new screen shows up as usual and takes over the panel, its recipe book takes over the search
+        RecipeBookComponent<?> book = ((AbstractRecipeBookScreenAccessor) host).inventorySearcher$recipeBookComponent();
+        if (((RecipeBookComponentAccessor) book).inventorySearcher$searchBox() != null) previousBook = book;
         host = crafting;
         setStage(Stage.Restoring);
         return true;
+    }
+
+    /** The old recipe book for the new one of the table that just opened again, once. */
+    RecipeBookComponent<?> takePreviousRecipeBook(RecipeBookMenu menu) {
+        if (previousBook == null || host.getMenu() != menu) return null;
+        RecipeBookComponent<?> book = previousBook;
+        previousBook = null;
+        return book;
     }
 
     private void restore() {

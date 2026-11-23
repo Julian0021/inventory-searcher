@@ -4,6 +4,7 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.client.gui.screens.inventory.CraftingScreen;
+import net.minecraft.client.gui.screens.recipebook.RecipeBookComponent;
 import net.minecraft.client.gui.screens.recipebook.RecipeCollection;
 import net.minecraft.ChatFormatting;
 import net.minecraft.core.BlockPos;
@@ -681,6 +682,11 @@ public class InventorySearcher {
     /** Whether the panel is open next to the crafting table of this recipe book. */
     public boolean hasCraftingPanel(RecipeBookMenu menu) {
         return crafting != null && crafting.isHostMenu(menu);
+    }
+
+    /** The recipe book of the crafting table before the panel opened it again, for the new one to keep the search. */
+    public RecipeBookComponent<?> takePreviousRecipeBook(RecipeBookMenu menu) {
+        return crafting == null ? null : crafting.takePreviousRecipeBook(menu);
     }
 
     /** Lays the screen out again at the start of the next tick, the window moves back when the panel closes. */

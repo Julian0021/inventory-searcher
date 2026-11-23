@@ -15,7 +15,8 @@
     "MultiPlayerGameModeMixin",
     "OptionsMixin",
     "RecipeBookComponentAccessor",
-    "RecipeBookComponentMixin"
+    "RecipeBookComponentMixin",
+    "RecipeBookPageAccessor"
   ],
   "injectors": {
     "defaultRequire": 1
