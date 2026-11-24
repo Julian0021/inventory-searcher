@@ -319,9 +319,12 @@ public final class CraftingPanel extends AbstractWidget {
         InventorySearcher.Entry entry = grid.entryAt(mx, my);
         if (entry == null) return true;
         int stack = entry.stack.getMaxStackSize();
-        if (event.button() == InputConstants.MOUSE_BUTTON_LEFT) searcher.withdraw(entry, stack);
+        if (event.button() == InputConstants.MOUSE_BUTTON_LEFT) {
+            if (event.hasShiftDown()) searcher.withdraw(entry, stack);
+            else session.withdrawToCursor(entry, stack);
+        }
         // half of what a left click takes, rounded up like vanilla
-        else if (event.button() == InputConstants.MOUSE_BUTTON_RIGHT) searcher.withdraw(entry, (int) Math.max(1, (Math.min(entry.loose, stack) + 1) / 2));
+        else if (event.button() == InputConstants.MOUSE_BUTTON_RIGHT) session.withdrawToCursor(entry, (int) Math.max(1, (Math.min(entry.loose, stack) + 1) / 2));
         return true;
     }
 

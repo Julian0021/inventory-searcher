@@ -449,6 +449,11 @@ public class InventorySearcher {
         for (int step = 0; step < MAX_STEPS_PER_TICK && clicksThisTick < config.clicksPerTick; step++) {
             if (deposit != null ? depositClick() : withdrawClick()) continue;
 
+            if (withdrawal != null && withdrawal.cursorReady && crafting != null) {
+                parkForCrafting(withdrawal);
+                setPhase(Phase.Settling);
+                return;
+            }
             if (withdrawal != null && withdrawal.cursorReady) {
                 setPhase(Phase.Holding);
                 // the stack on the cursor has left the container, the terminal shows that right away
@@ -977,6 +982,28 @@ public class InventorySearcher {
         w.cursorReady = !carried.isEmpty();
         w.cursorTaken = carried.getCount();
         return false;
+    }
+
+    /**
+     * At a crafting table the cursor can't stay in the container, the table is opened again first and a cursor doesn't
+     * survive closing a menu. So the stack goes into a free inventory slot of its own and is picked up from there with
+     * a single click: that click works on the server whatever late updates the client still has to apply.
+     */
+    private void parkForCrafting(Withdrawal w) {
+        Slot slot = stageSlot(w);
+        if (slot != null && !slot.getItem().isEmpty()) slot = null;
+        if (slot == null) {
+            for (Slot s : menu.slots) {
+                if (s.container == mc.player.getInventory() && s.getContainerSlot() < 36 && s.getItem().isEmpty()) {
+                    slot = s;
+                    break;
+                }
+            }
+        }
+        // no free slot: the stack is put away like any other, it just isn't picked up afterwards
+        if (slot == null) return;
+        click(slot.index, 0, ContainerInput.PICKUP);
+        if (menu.getCarried().isEmpty()) crafting.pickUpLater(slot.getContainerSlot());
     }
 
     /** The inventory slot the stack waits in between containers, a free one in the main inventory if possible. */

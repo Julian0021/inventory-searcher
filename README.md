@@ -35,7 +35,8 @@ The chest button at the right edge of a crafting table scans the containers in r
 
 | Input | Action |
 |---|---|
-| Left / right click item in the panel | Move a stack / half a stack into the inventory |
+| Left / right click item in the panel | Pick up a stack / half a stack |
+| Shift + left click item in the panel | Move a stack into the inventory |
 | Click the panel while holding a stack | Store it in the nearest chest with room |
 | Recipe in the recipe book | Takes what's missing out of the containers and places the recipe, shift for as many as possible |
 

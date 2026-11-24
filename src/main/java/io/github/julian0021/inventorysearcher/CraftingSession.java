@@ -67,6 +67,8 @@ public final class CraftingSession {
     /** The recipe book of the screen before the table opened again, until the new one took over its search. */
     private RecipeBookComponent<?> previousBook;
     private boolean pendingUseMax;
+    /** The inventory slot (0-35) with a stack taken for the cursor, picked up once the grid is back, or -1. */
+    private int pickUpSlot = -1;
 
     private int countedVersion = -1;
     private int recipeBookCooldown;
@@ -111,6 +113,21 @@ public final class CraftingSession {
             case Restoring -> pendingRecipe != null ? "Placing the recipe..." : "Putting the crafting grid back...";
             default -> "";
         };
+    }
+
+    /**
+     * Takes items out of the containers onto the cursor. They wait in an inventory slot of their own while the table
+     * opens again and are picked up from there. With other work waiting they only go into the inventory, the terminal
+     * also takes onto the cursor only when nothing else is going on.
+     */
+    void withdrawToCursor(InventorySearcher.Entry entry, int amount) {
+        if (acceptsCraftingInput() && !searcher.hasWork()) searcher.withdrawToCursor(entry, amount);
+        else searcher.withdraw(entry, amount);
+    }
+
+    /** Called when a stack for the cursor waits in the inventory slot. */
+    void pickUpLater(int inventorySlot) {
+        pickUpSlot = inventorySlot;
     }
 
     /** Places the recipe once the crafting table is open again. */
@@ -242,6 +259,7 @@ public final class CraftingSession {
             mc.gameMode.handlePlaceRecipe(menu.containerId, pendingRecipe, pendingUseMax);
             pendingRecipe = null;
             savedGrid = null;
+            pickUpSlot = -1;
             setStage(Stage.TableOpen);
             return;
         }
@@ -249,7 +267,21 @@ public final class CraftingSession {
         while (searcher.hasClickBudget()) {
             if (savedGrid == null || restoreClicks++ >= MAX_RESTORE_CLICKS || !restoreStep(menu)) {
                 savedGrid = null;
+                pickUp(menu);
                 setStage(Stage.TableOpen);
+                return;
+            }
+        }
+    }
+
+    /** One click picks up the stack taken for the cursor, the server has an empty cursor once the grid is back. */
+    private void pickUp(CraftingMenu menu) {
+        int inventorySlot = pickUpSlot;
+        pickUpSlot = -1;
+        if (inventorySlot < 0 || !menu.getCarried().isEmpty()) return;
+        for (Slot slot : menu.slots) {
+            if (slot.container == mc.player.getInventory() && slot.getContainerSlot() == inventorySlot && slot.hasItem()) {
+                searcher.clickIn(menu, slot.index, 0, ContainerInput.PICKUP);
                 return;
             }
         }
@@ -330,9 +362,12 @@ public final class CraftingSession {
         return empty;
     }
 
-    /** The main inventory and hotbar slots of the menu, without the ones queued for storing, those are about to leave. */
+    /**
+     * The main inventory and hotbar slots of the menu, without the ones queued for storing, those are about to leave,
+     * and without the one waiting to be picked up.
+     */
     private List<Slot> playerSlots(AbstractContainerMenu menu) {
-        Set<Integer> reserved = searcher.depositSlots();
+        Set<Integer> reserved = reservedSlots();
         List<Slot> slots = new ArrayList<>();
         for (Slot slot : menu.slots) {
             if (slot.container != mc.player.getInventory() || slot.getContainerSlot() >= 36 || reserved.contains(slot.getContainerSlot())) continue;
@@ -343,7 +378,7 @@ public final class CraftingSession {
 
     /** Whether the cursor and the whole grid fit into the inventory, the same way the clicks put them there. */
     private boolean fitsIntoInventory(CraftingMenu menu) {
-        Set<Integer> reserved = searcher.depositSlots();
+        Set<Integer> reserved = reservedSlots();
         ItemStack[] inventory = new ItemStack[36];
         for (int i = 0; i < inventory.length; i++) {
             inventory[i] = reserved.contains(i) ? null : mc.player.getInventory().getItem(i).copy();
@@ -373,6 +408,12 @@ public final class CraftingSession {
             if (left > 0) return false;
         }
         return true;
+    }
+
+    private Set<Integer> reservedSlots() {
+        Set<Integer> reserved = searcher.depositSlots();
+        if (pickUpSlot >= 0) reserved.add(pickUpSlot);
+        return reserved;
     }
 
     private void fail(String message) {
