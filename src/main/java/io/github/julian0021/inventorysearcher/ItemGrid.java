@@ -155,7 +155,7 @@ final class ItemGrid {
         }
 
         if (filtered.isEmpty()) {
-            String text = searcher.isScanning() ? "Scanning..." : searcher.entries().isEmpty() ? "Nothing found" : "No matches";
+            Component text = Lang.text(searcher.isScanning() ? "grid.scanning" : searcher.entries().isEmpty() ? "grid.nothing_found" : "grid.no_matches");
             graphics.centeredText(font, text, x + width() / 2, y + height() / 2 - 4, 0xFFFFFFFF);
         }
         return hovered;
@@ -192,16 +192,17 @@ final class ItemGrid {
     List<Component> tooltip(InventorySearcher.Entry entry) {
         List<Component> lines = new ArrayList<>(Screen.getTooltipFromItem(mc, entry.stack));
         lines.add(Component.empty());
-        lines.add(Component.literal("Stored: " + String.format("%,d", entry.loose)).withStyle(ChatFormatting.GRAY));
+        lines.add(Lang.text("tooltip.stored", String.format("%,d", entry.loose)).withStyle(ChatFormatting.GRAY));
         if (entry.inShulkers > 0) {
-            lines.add(Component.literal("In shulker boxes: " + String.format("%,d", entry.inShulkers)).withStyle(ChatFormatting.LIGHT_PURPLE));
+            lines.add(Lang.text("tooltip.in_shulker_boxes", String.format("%,d", entry.inShulkers)).withStyle(ChatFormatting.LIGHT_PURPLE));
         }
-        lines.add(Component.literal("In " + entry.containers.size() + (entry.containers.size() == 1 ? " container" : " containers")).withStyle(ChatFormatting.GRAY));
+        lines.add(Lang.text(entry.containers.size() == 1 ? "tooltip.in_container" : "tooltip.in_containers", entry.containers.size()).withStyle(ChatFormatting.GRAY));
         return lines;
     }
 
-    static Component hint(String text) {
-        return Component.literal(text).withStyle(ChatFormatting.DARK_GRAY);
+    /** A line saying what a click does, from its lang key. */
+    static Component hint(String key) {
+        return Lang.text(key).withStyle(ChatFormatting.DARK_GRAY);
     }
 
     static void drawPanel(GuiGraphicsExtractor graphics, int x, int y, int w, int h) {

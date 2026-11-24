@@ -2,6 +2,8 @@
 
 Client-side Fabric mod for Minecraft 26.3. One key scans every container in reach without opening its screen and lists all contents in a searchable terminal, like an ME system.
 
+Available in English and German, it follows the game's language.
+
 ![The terminal listing five containers, the tooltip shows where the diamonds are stored](docs/terminal.png)
 
 ## Install

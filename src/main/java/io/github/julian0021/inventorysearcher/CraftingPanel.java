@@ -46,7 +46,7 @@ public final class CraftingPanel extends AbstractWidget {
         Identifier.withDefaultNamespace("widget/button_highlighted")
     );
     private static final ItemStack BUTTON_ICON = new ItemStack(Items.CHEST);
-    private static final Component TITLE = Component.literal("Storage");
+    private static final Component TITLE = Lang.text("panel.title");
 
     /** The panel of the crafting screen that is showing, the screen hooks look it up here. */
     private static CraftingPanel current;
@@ -73,9 +73,9 @@ public final class CraftingPanel extends AbstractWidget {
         this.imageWidth = imageWidth;
         this.imageHeight = imageHeight;
 
-        searchBox = new EditBox(mc.font, 0, 0, 10, 12, Component.literal("Search"));
+        searchBox = new EditBox(mc.font, 0, 0, 10, 12, Lang.text("search"));
         searchBox.setMaxLength(100);
-        searchBox.setHint(Component.literal("Search...").withStyle(ChatFormatting.DARK_GRAY));
+        searchBox.setHint(Lang.text("panel.search_hint").withStyle(ChatFormatting.DARK_GRAY));
         CraftingSession session = searcher.crafting();
         if (session != null && session.isHost(screen)) searchBox.setValue(session.search);
         searchBox.setResponder(value -> {
@@ -239,16 +239,17 @@ public final class CraftingPanel extends AbstractWidget {
         if (hovered != null && mc.player.containerMenu.getCarried().isEmpty()) {
             List<Component> lines = grid.tooltip(hovered);
             if (hovered.loose > 0) {
-                lines.add(ItemGrid.hint("Left: take a stack · Right: take half"));
-                lines.add(ItemGrid.hint("Click with an item: store it"));
+                lines.add(ItemGrid.hint("hint.pick_up"));
+                lines.add(ItemGrid.hint("hint.move_to_inventory"));
+                lines.add(ItemGrid.hint("hint.store"));
             } else {
-                lines.add(ItemGrid.hint("Click: take a shulker box with it"));
+                lines.add(ItemGrid.hint("hint.take_shulker_box"));
             }
             graphics.setTooltipForNextFrame(font, lines, hovered.stack.getTooltipImage(), mouseX, mouseY);
         } else if (overSmallButton(rescanX(), mouseX, mouseY)) {
-            graphics.setTooltipForNextFrame(font, Component.literal("Scan again"), mouseX, mouseY);
+            graphics.setTooltipForNextFrame(font, Lang.text("button.rescan"), mouseX, mouseY);
         } else if (overSmallButton(closeX(), mouseX, mouseY)) {
-            graphics.setTooltipForNextFrame(font, Component.literal("Close"), mouseX, mouseY);
+            graphics.setTooltipForNextFrame(font, Lang.text("button.close"), mouseX, mouseY);
         }
     }
 
@@ -259,10 +260,8 @@ public final class CraftingPanel extends AbstractWidget {
         graphics.item(BUTTON_ICON, buttonX + 2, buttonY + 1);
         if (!hovered) return;
 
-        String tooltip;
-        if (!enabled) tooltip = "Only for a crafting table you opened yourself, in reach";
-        else tooltip = "Search the containers in reach";
-        graphics.setTooltipForNextFrame(font, font.split(Component.literal(tooltip), 200), mouseX, mouseY);
+        Component tooltip = Lang.text(enabled ? "panel.button" : "panel.button.disabled");
+        graphics.setTooltipForNextFrame(font, font.split(tooltip, 200), mouseX, mouseY);
     }
 
     // Input

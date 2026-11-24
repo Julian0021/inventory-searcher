@@ -91,7 +91,7 @@ public class SettingsScreen extends OptionsSubScreen {
             new OptionInstance<>(
                 "inventory-searcher.settings.sort",
                 tooltip("sort"),
-                (caption, value) -> Component.literal(value.title),
+                (caption, value) -> Component.translatable(value.key),
                 new OptionInstance.Enum<>(Arrays.asList(SearcherConfig.SortMode.values()), Codec.STRING.xmap(SearcherConfig.SortMode::valueOf, Enum::name)),
                 config.sort,
                 value -> {

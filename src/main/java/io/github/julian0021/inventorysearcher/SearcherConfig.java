@@ -133,14 +133,15 @@ public class SearcherConfig {
     }
 
     public enum SortMode {
-        COUNT("Count"),
-        NAME("Name"),
-        MOD("Mod");
+        COUNT("count"),
+        NAME("name"),
+        MOD("mod");
 
-        public final String title;
+        /** The lang key of its name in the settings. */
+        public final String key;
 
-        SortMode(String title) {
-            this.title = title;
+        SortMode(String name) {
+            this.key = "inventory-searcher.settings.sort." + name;
         }
     }
 }

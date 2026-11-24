@@ -51,7 +51,7 @@ public class InventorySearcherScreen extends Screen {
     private int playerY, hotbarY;
 
     public InventorySearcherScreen(InventorySearcher searcher) {
-        super(Component.literal("Inventory Searcher"));
+        super(Lang.text("terminal.title"));
         this.searcher = searcher;
         this.grid = new ItemGrid(searcher);
         this.playerInventory = mc.player.getInventory();
@@ -74,9 +74,9 @@ public class InventorySearcherScreen extends Screen {
         grid.setBounds(gridX, gridY, COLUMNS, rows);
 
         String previous = searchBox != null ? searchBox.getValue() : "";
-        searchBox = new EditBox(font, gridX + 1, top + 30, GRID_WIDTH + ItemGrid.SCROLLBAR_SPACE - 2, 12, Component.literal("Search"));
+        searchBox = new EditBox(font, gridX + 1, top + 30, GRID_WIDTH + ItemGrid.SCROLLBAR_SPACE - 2, 12, Lang.text("search"));
         searchBox.setMaxLength(100);
-        searchBox.setHint(Component.literal("Search...  @mod  #tooltip").withStyle(ChatFormatting.DARK_GRAY));
+        searchBox.setHint(Lang.text("terminal.search_hint").withStyle(ChatFormatting.DARK_GRAY));
         searchBox.setValue(previous);
         searchBox.setResponder(grid::setFilter);
         addRenderableWidget(searchBox);
@@ -173,28 +173,28 @@ public class InventorySearcherScreen extends Screen {
         } else if (!hoveredOwn.isEmpty()) {
             List<Component> lines = new ArrayList<>(getTooltipFromItem(mc, hoveredOwn));
             lines.add(Component.empty());
-            lines.add(ItemGrid.hint("Shift + Left: store in the nearest chest"));
+            lines.add(ItemGrid.hint("hint.store_own"));
             graphics.setTooltipForNextFrame(font, lines, hoveredOwn.getTooltipImage(), mouseX, mouseY);
         } else if (iconButtonTooltip(mouseX, mouseY) != null) {
-            graphics.setTooltipForNextFrame(font, Component.literal(iconButtonTooltip(mouseX, mouseY)), mouseX, mouseY);
+            graphics.setTooltipForNextFrame(font, iconButtonTooltip(mouseX, mouseY), mouseX, mouseY);
         }
     }
 
-    private String iconButtonTooltip(double mx, double my) {
-        if (IconButton.isOver(rescanX(), iconButtonY(), mx, my)) return "Scan again (Ctrl + R)";
-        if (IconButton.isOver(settingsX(), iconButtonY(), mx, my)) return "Settings";
-        if (IconButton.isOver(closeX(), iconButtonY(), mx, my)) return "Close (Esc)";
+    private Component iconButtonTooltip(double mx, double my) {
+        if (IconButton.isOver(rescanX(), iconButtonY(), mx, my)) return Lang.text("button.rescan.key");
+        if (IconButton.isOver(settingsX(), iconButtonY(), mx, my)) return Lang.text("button.settings");
+        if (IconButton.isOver(closeX(), iconButtonY(), mx, my)) return Lang.text("button.close.key");
         return null;
     }
 
     private List<Component> tooltip(InventorySearcher.Entry entry) {
         List<Component> lines = grid.tooltip(entry);
         if (entry.loose > 0) {
-            lines.add(ItemGrid.hint("Left: pick up stack · Right: pick up half"));
-            lines.add(ItemGrid.hint("Shift + Left: move a stack into inventory"));
-            lines.add(ItemGrid.hint("Click with an item: store it"));
+            lines.add(ItemGrid.hint("hint.pick_up"));
+            lines.add(ItemGrid.hint("hint.move_to_inventory"));
+            lines.add(ItemGrid.hint("hint.store"));
         } else {
-            lines.add(ItemGrid.hint("Click: take a shulker box with it"));
+            lines.add(ItemGrid.hint("hint.take_shulker_box"));
         }
         return lines;
     }

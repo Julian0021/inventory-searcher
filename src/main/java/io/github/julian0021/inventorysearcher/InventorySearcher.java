@@ -215,7 +215,7 @@ public class InventorySearcher {
         }
 
         scanning = !scanQueue.isEmpty();
-        status = scanning ? "" : "No containers in reach";
+        status = scanning ? "" : Lang.get("status.no_containers");
         version++;
     }
 
@@ -1103,10 +1103,10 @@ public class InventorySearcher {
             if (phase == Phase.Holding) {
                 // finishing the withdrawal keeps this status instead of reporting the pick up
                 if (withdrawal != null) withdrawal.putBack = true;
-                status = "Inventory full, put " + carried.getHoverName().getString() + " back";
+                status = Lang.get("status.put_back", carried.getHoverName().getString());
                 setPhase(Phase.Settling);
             } else {
-                status = "No free inventory slot to store from";
+                status = Lang.get("status.no_free_slot");
             }
             version++;
             return;
@@ -1166,9 +1166,9 @@ public class InventorySearcher {
         String name = d.stack.getHoverName().getString();
         ItemStack left = mc.player.getInventory().getItem(d.slot);
         int remaining = d.matches(left) ? left.getCount() : 0;
-        if (d.stored == 0) status = "No chest in reach has room for " + name;
-        else if (remaining > 0) status = "Stored " + d.stored + "x " + name + ", no room for " + remaining;
-        else status = "Stored " + d.stored + "x " + name;
+        if (d.stored == 0) status = Lang.get("status.no_room", name);
+        else if (remaining > 0) status = Lang.get("status.stored_partly", d.stored, name, remaining);
+        else status = Lang.get("status.stored", d.stored, name);
         version++;
     }
 
@@ -1195,17 +1195,17 @@ public class InventorySearcher {
         String name = w.stack.getHoverName().getString();
         if (w.toCursor) {
             if (w.putBack) return;
-            if (w.staged > 0) status = "The last container couldn't be opened, " + w.staged + "x " + name + " went into the inventory";
-            else if (w.cursorTaken == 0) status = "Couldn't pick up " + name;
-            else if (w.inventoryFull && w.cursorTaken < w.amount) status = "Picked up " + w.cursorTaken + "x " + name + ", no free slot to gather more";
-            else status = "Picked up " + w.cursorTaken + "x " + (w.wholeBox ? "shulker box" : name);
+            if (w.staged > 0) status = Lang.get("status.staged", w.staged, name);
+            else if (w.cursorTaken == 0) status = Lang.get("status.not_picked_up", name);
+            else if (w.inventoryFull && w.cursorTaken < w.amount) status = Lang.get("status.picked_up_partly", w.cursorTaken, name);
+            else status = w.wholeBox ? Lang.get("status.picked_up_box", name) : Lang.get("status.picked_up", w.cursorTaken, name);
         } else if (w.wholeBox) {
-            status = w.boxesTaken > 0 ? "Took a shulker box with " + name : "Couldn't take a shulker box with " + name;
+            status = Lang.get(w.boxesTaken > 0 ? "status.took_box" : "status.not_took_box", name);
         } else {
             int taken = w.amount - Math.max(0, w.remaining());
-            if (w.inventoryFull && taken < w.amount) status = "Inventory full, took " + taken + "x " + name;
-            else if (taken < w.amount) status = "Only found " + taken + "x " + name;
-            else status = "Took " + taken + "x " + name;
+            if (w.inventoryFull && taken < w.amount) status = Lang.get("status.took_inventory_full", taken, name);
+            else if (taken < w.amount) status = Lang.get("status.only_found", taken, name);
+            else status = Lang.get("status.took", taken, name);
         }
         version++;
     }
@@ -1421,23 +1421,25 @@ public class InventorySearcher {
     public String status() {
         if (deposit != null) {
             int queued = deposits.size();
-            return "Storing " + deposit.stack.getHoverName().getString() + "..." + (queued > 0 ? " (" + queued + " more queued)" : "");
+            String storing = Lang.get("status.storing", deposit.stack.getHoverName().getString());
+            return queued > 0 ? storing + " " + Lang.get("status.queued", queued) : storing;
         }
         if (withdrawal != null) {
             int queued = withdrawals.size();
-            return "Taking " + withdrawal.stack.getHoverName().getString() + "..." + (queued > 0 ? " (" + queued + " more queued)" : "");
+            String taking = Lang.get("status.taking", withdrawal.stack.getHoverName().getString());
+            return queued > 0 ? taking + " " + Lang.get("status.queued", queued) : taking;
         }
         if (scanning) {
             int done = containers.size() - scanQueue.size() - (target != null ? 1 : 0);
-            return "Scanning " + Math.max(0, done) + "/" + containers.size() + "...";
+            return Lang.get("status.scanning", Math.max(0, done), containers.size());
         }
-        if (!failed.isEmpty() && status.isEmpty()) return failed.size() + " container(s) couldn't be opened";
+        if (!failed.isEmpty() && status.isEmpty()) return Lang.get("status.failed", failed.size());
         return status;
     }
 
     public String summary() {
-        String summary = containerCount() + " containers · " + String.format("%,d", totalItems) + " items";
-        return excludedInReach > 0 ? summary + " · " + excludedInReach + " excluded" : summary;
+        String summary = Lang.get("summary", containerCount(), String.format("%,d", totalItems));
+        return excludedInReach > 0 ? summary + " · " + Lang.get("summary.excluded", excludedInReach) : summary;
     }
 
     // Excluding containers
@@ -1454,14 +1456,14 @@ public class InventorySearcher {
     public void toggleExclusionAtCrosshair() {
         if (mc.player == null || mc.level == null) return;
         if (!(mc.hitResult instanceof BlockHitResult hit) || hit.getType() != HitResult.Type.BLOCK) {
-            mc.player.sendOverlayMessage(Component.literal("Look at a container to exclude it from the Inventory Searcher"));
+            mc.player.sendOverlayMessage(Lang.text("exclude.look_at_container"));
             return;
         }
 
         BlockPos pos = hit.getBlockPos();
         BlockEntity blockEntity = mc.level.getBlockEntity(pos);
         if (!(blockEntity instanceof Container) && !(blockEntity instanceof EnderChestBlockEntity)) {
-            mc.player.sendOverlayMessage(Component.literal("That's not a container"));
+            mc.player.sendOverlayMessage(Lang.text("exclude.not_a_container"));
             return;
         }
 
@@ -1470,7 +1472,7 @@ public class InventorySearcher {
         saveExclusions();
 
         String name = blockEntity.getBlockState().getBlock().getName().getString();
-        mc.player.sendOverlayMessage(Component.literal((excluded ? "Excluded " : "Included ") + name + " at " + pos.getX() + ", " + pos.getY() + ", " + pos.getZ())
+        mc.player.sendOverlayMessage(Lang.text(excluded ? "exclude.excluded" : "exclude.included", name, pos.getX(), pos.getY(), pos.getZ())
             .withStyle(excluded ? ChatFormatting.RED : ChatFormatting.GREEN));
     }
 

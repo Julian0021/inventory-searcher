@@ -108,9 +108,9 @@ public final class CraftingSession {
 
     String status() {
         return switch (stage) {
-            case Preparing -> "Putting the crafting grid away...";
-            case Reopening -> "Opening the crafting table...";
-            case Restoring -> pendingRecipe != null ? "Placing the recipe..." : "Putting the crafting grid back...";
+            case Preparing -> Lang.get("crafting.preparing");
+            case Reopening -> Lang.get("crafting.reopening");
+            case Restoring -> Lang.get(pendingRecipe != null ? "crafting.placing_recipe" : "crafting.restoring");
             default -> "";
         };
     }
@@ -164,7 +164,7 @@ public final class CraftingSession {
                 yield true;
             }
             case Reopening -> {
-                if (stageTicks > config.openTimeout) fail("The crafting table didn't open again");
+                if (stageTicks > config.openTimeout) fail(Lang.get("crafting.not_reopened"));
                 yield true;
             }
             case Restoring -> {
@@ -183,12 +183,12 @@ public final class CraftingSession {
     private boolean prepare() {
         CraftingMenu menu = host.getMenu();
         if (mc.player.containerMenu != menu) {
-            fail("The crafting table was closed");
+            fail(Lang.get("crafting.closed"));
             return true;
         }
         if (savedGrid == null) {
             if (!fitsIntoInventory(menu)) {
-                searcher.dropJobs("Inventory full, can't put the crafting grid away");
+                searcher.dropJobs(Lang.get("crafting.inventory_full"));
                 pendingRecipe = null;
                 setStage(Stage.TableOpen);
                 return true;
@@ -216,11 +216,11 @@ public final class CraftingSession {
 
     private void reopen() {
         if (!(mc.level.getBlockState(table).getBlock() instanceof CraftingTableBlock)) {
-            fail("The crafting table is gone");
+            fail(Lang.get("crafting.gone"));
             return;
         }
         if (!searcher.inReach(table)) {
-            fail("The crafting table is out of reach");
+            fail(Lang.get("crafting.out_of_reach"));
             return;
         }
         setStage(Stage.Reopening);
