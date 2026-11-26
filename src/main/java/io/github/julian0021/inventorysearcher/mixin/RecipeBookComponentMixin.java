@@ -36,6 +36,8 @@ public abstract class RecipeBookComponentMixin {
 
     /** The crafting window's width, known once the screen asked for its position. */
     @Unique private int inventorySearcher$imageWidth = 176;
+    /** The search field while the recipe book builds a new one. */
+    @Unique private EditBox inventorySearcher$oldSearchBox;
 
     @Shadow
     public abstract boolean isVisible();
@@ -55,14 +57,28 @@ public abstract class RecipeBookComponentMixin {
     @Inject(method = "initVisuals", at = @At("HEAD"))
     private void inventorySearcher$keepSearch(CallbackInfo ci) {
         InventorySearcher searcher = InventorySearcherMod.searcher();
-        if (searchBox != null || searcher == null) return;
-        RecipeBookComponentAccessor previous = (RecipeBookComponentAccessor) searcher.takePreviousRecipeBook(menu);
-        if (previous == null) return;
-        searchBox = previous.inventorySearcher$searchBox();
-        lastSearch = previous.inventorySearcher$lastSearch();
-        selectedTab = previous.inventorySearcher$selectedTab();
-        int page = ((RecipeBookPageAccessor) previous.inventorySearcher$recipeBookPage()).inventorySearcher$currentPage();
-        ((RecipeBookPageAccessor) recipeBookPage).inventorySearcher$setCurrentPage(page);
+        if (searchBox == null && searcher != null) {
+            RecipeBookComponentAccessor previous = (RecipeBookComponentAccessor) searcher.takePreviousRecipeBook(menu);
+            if (previous != null) {
+                searchBox = previous.inventorySearcher$searchBox();
+                lastSearch = previous.inventorySearcher$lastSearch();
+                selectedTab = previous.inventorySearcher$selectedTab();
+                int page = ((RecipeBookPageAccessor) previous.inventorySearcher$recipeBookPage()).inventorySearcher$currentPage();
+                ((RecipeBookPageAccessor) recipeBookPage).inventorySearcher$setCurrentPage(page);
+            }
+        }
+        inventorySearcher$oldSearchBox = searchBox;
+    }
+
+    // The game builds a new search field here and only takes the text over. Someone typing while the panel works keeps
+    // typing when the table opens again or the window moves for the panel.
+    @Inject(method = "initVisuals", at = @At("RETURN"))
+    private void inventorySearcher$keepSearchFocus(CallbackInfo ci) {
+        EditBox old = inventorySearcher$oldSearchBox;
+        inventorySearcher$oldSearchBox = null;
+        if (old == null || old == searchBox || !old.isFocused()) return;
+        searchBox.setFocused(true);
+        searchBox.moveCursorTo(old.getCursorPosition(), false);
     }
 
     // the recipe book, its tabs and everything else on it are placed from this offset

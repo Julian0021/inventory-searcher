@@ -77,7 +77,11 @@ public final class CraftingPanel extends AbstractWidget {
         searchBox.setMaxLength(100);
         searchBox.setHint(Lang.text("panel.search_hint").withStyle(ChatFormatting.DARK_GRAY));
         CraftingSession session = searcher.crafting();
-        if (session != null && session.isHost(screen)) searchBox.setValue(session.search);
+        if (session != null && session.isHost(screen)) {
+            // the screen is built again when the table opens again or the window moves, typing goes on
+            searchBox.setValue(session.search);
+            searchBox.setFocused(session.searchFocused);
+        }
         searchBox.setResponder(value -> {
             CraftingSession s = session();
             if (s == null) return;
@@ -286,13 +290,13 @@ public final class CraftingPanel extends AbstractWidget {
 
         CraftingSession session = session();
         if (session == null || !overPanel(mx, my)) {
-            searchBox.setFocused(false);
+            focusSearch(false);
             return false;
         }
         pressed = true;
 
         if (overSmallButton(rescanX(), mx, my) || overSmallButton(closeX(), mx, my)) {
-            searchBox.setFocused(false);
+            focusSearch(false);
             if (session.isIdle()) {
                 playButtonClickSound(mc.getSoundManager());
                 if (overSmallButton(rescanX(), mx, my)) searcher.rescan();
@@ -301,11 +305,11 @@ public final class CraftingPanel extends AbstractWidget {
             return true;
         }
         if (searchBox.isMouseOver(mx, my)) {
-            searchBox.setFocused(true);
+            focusSearch(true);
             searchBox.mouseClicked(event, doubled);
             return true;
         }
-        searchBox.setFocused(false);
+        focusSearch(false);
 
         ItemGrid grid = session.grid;
         if (grid.startScrollbarDrag(mx, my) || !grid.contains(mx, my)) return true;
@@ -381,11 +385,17 @@ public final class CraftingPanel extends AbstractWidget {
     @Override
     public void setFocused(boolean focused) {
         super.setFocused(focused);
-        if (!focused) searchBox.setFocused(false);
+        if (!focused) focusSearch(false);
     }
 
     public void unfocusSearch() {
-        searchBox.setFocused(false);
+        focusSearch(false);
+    }
+
+    private void focusSearch(boolean focused) {
+        searchBox.setFocused(focused);
+        CraftingSession session = session();
+        if (session != null) session.searchFocused = focused;
     }
 
     @Override

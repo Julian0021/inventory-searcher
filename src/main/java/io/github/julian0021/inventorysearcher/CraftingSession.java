@@ -54,6 +54,7 @@ public final class CraftingSession {
     private final BlockPos table;
     final ItemGrid grid;
     String search = "";
+    boolean searchFocused;
 
     private CraftingScreen host;
     private boolean hostRemoved;
